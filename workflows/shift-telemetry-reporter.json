@@ -1,0 +1,911 @@
+{
+  "name": "tpi-ai-planing-line-report",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "3366dd19-0a8c-4ffd-bf17-c32de54f1607",
+      "name": "รันเอง",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        -304,
+        160
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{ json: { lineTo: 'Cffeb6784bd177438b9ffba75120cdeab' } }];"
+      },
+      "id": "7280c1ca-5518-49d6-b7c2-a260271316fd",
+      "name": "Config",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -32,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "18owLhg94QmYCXfQ_jOlCuoPkSV4a1APprAjYJN4Wj8w",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 1421446568,
+          "mode": "list",
+          "cachedResultName": "รายการสั่งผลิตสินค้า T1",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/18owLhg94QmYCXfQ_jOlCuoPkSV4a1APprAjYJN4Wj8w/edit#gid=1421446568"
+        },
+        "options": {}
+      },
+      "id": "cf3598f8-2856-40d9-8012-87f576b10c4a",
+      "name": "อ่านตารางผลิต",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        160,
+        80
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "a4Xw1y7SaDpe3N5m",
+          "name": "dts-n8n"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// ============================================================\n// Build HTML (แบบ B) — ตารางผลิตรายสัปดาห์ + ผลิตจริง + กรอบเวลาที่ขยาย + cascade\n// พอร์ตไปเป็น n8n Code node ได้: แทน read-from-file ด้วย $('อ่านตารางผลิต'/'อ่าน Loss'/'อ่าน map').all()\n// ============================================================\n\n// ---------- helpers ----------\nconst pad = (n, w) => String(n).padStart(w, '0');\nconst clock = d => `${d.getHours()}:${pad(d.getMinutes(), 2)}`;\nconst esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');\nconst num = v => Number(String(v==null?'':v).replace(/,/g,''))||0;\nconst fmt = n => Math.round(n).toString().replace(/\\B(?=(\\d{3})+(?!\\d))/g,',');\nconst fmtK = n => n>=1e6?(Math.round(n/1e5)/10+'ล.'):n>=1000?(Math.round(n/100)/10+'K'):String(Math.round(n));\nconst core = s => String(s??'').split('|')[0].trim();\nconst normMachine = m => { m=String(m??'').trim().toUpperCase(); return m==='TE1'?'TE':m; };\nfunction toYMD(v){ if(v==null||v==='')return null; const s=String(v).trim();\n  if(/^\\d+(\\.\\d+)?$/.test(s)){const n=parseFloat(s); if(n>20000&&n<80000){const d=new Date(Date.UTC(1899,11,30)+Math.round(n)*86400000); return `${d.getUTCFullYear()}-${pad(d.getUTCMonth()+1,2)}-${pad(d.getUTCDate(),2)}`;}}\n  let m=s.match(/^(\\d{4})-(\\d{1,2})-(\\d{1,2})/); if(m){let Y=+m[1];if(Y>2400)Y-=543;return `${Y}-${pad(+m[2],2)}-${pad(+m[3],2)}`;}\n  m=s.match(/^(\\d{1,2})\\/(\\d{1,2})\\/(\\d{2,4})/); if(m){let Y=+m[3];if(Y>2400)Y-=543;if(Y<100)Y+=2000;return `${Y}-${pad(+m[2],2)}-${pad(+m[1],2)}`;}\n  const d=new Date(s); return isNaN(d)?null:`${d.getFullYear()}-${pad(d.getMonth()+1,2)}-${pad(d.getDate(),2)}`; }\nfunction mkDT(ymd,t){ let hh=8,mm=0; const m=String(t==null?'':t).match(/(\\d{1,2}):(\\d{1,2})/); if(m){hh=+m[1];mm=+m[2];} const [y,mo,d]=ymd.split('-').map(Number); return new Date(y,mo-1,d,hh,mm,0); }\nconst addDays=(dt,n)=>{const x=new Date(dt);x.setDate(x.getDate()+n);return x;};\nconst H = 3600000;                       // ms per hour\nconst dmy = d => `${d.getDate()}/${d.getMonth()+1}`;\n\n// ============================================================\nfunction computeJobs({rows, loss, mapDict, asOf}){\n  const asOfDT = mkDT(asOf,'23:59');\n\n  // ---- map: loss product -> plan core ----\n  const MAP = mapDict || {};\n  const mapCore = p => MAP[String(p??'').trim()] || null;\n\n  // ---- parse jobs (รายการ T1) ----\n  const jobs=[];\n  for(const r of rows){\n    const machine=String(r['เครื่องจักร']||'').trim(); const sdY=toYMD(r['วันที่เริ่มผลิตสินค้า']); if(!machine||!sdY)continue;\n    const edY=toYMD(r['วันที่สิ้นสุดผลิตสินค้า'])||sdY;\n    let st=mkDT(sdY,r['เวลาเริ่มผลิตสินค้า']), en=mkDT(edY,r['เวลาสิ้นสุดผลิตสินค้า']); if(en<=st)en=new Date(st.getTime()+H);\n    const items=[];\n    for(let i=1;i<=4;i++){ const nm=String(r['ชื่อสินค้า แม่พิมพ์ตัวที่ '+i]||'').trim(); if(!nm)continue; const q=num(r['จำนวนสั่งผลิต'+i]); const ex=items.find(x=>x.name===nm); if(ex)ex.qty+=q; else items.push({name:nm,qty:q}); }\n    if(!items.length)items.push({name:'(ไม่ระบุ)',qty:0});\n    const cores=[...new Set(items.map(it=>core(it.name)))];\n    jobs.push({machine,ps:st,pe:en,items,cores,key:items.map(x=>x.name).join(' ¦ '),\n               qty:items.reduce((a,it)=>a+it.qty,0), workers:num(r['จำนวนคนงาน']),\n               rowNumber:(r['row_number']!=null?r['row_number']:null)});\n  }\n\n  // ---- attribute loss -> job (machine + core, latest job whose ps<=date) ----\n  const byMachine={};\n  for(const j of jobs){ (byMachine[j.machine]=byMachine[j.machine]||[]).push(j); }\n  for(const m in byMachine) byMachine[m].sort((a,b)=>a.ps-b.ps);\n  for(const j of jobs){ j.produced=0; j.daily={}; }\n  for(const L of loss){\n    const g=num(L['ของดี\\n(ใบ)']!=null?L['ของดี\\n(ใบ)']:L.good); if(!g)continue;\n    const mc=normMachine(L['เครื่อง']!=null?L['เครื่อง']:L.machine);\n    const cp=mapCore(L['ชื่อสินค้า']!=null?L['ชื่อสินค้า']:L.product); if(!cp)continue;\n    const dy=toYMD(L['วันที่']!=null?L['วันที่']:L.date); if(!dy)continue;\n    const dDT=mkDT(dy,'12:00'); if(dDT>asOfDT)continue;\n    const cand=(byMachine[mc]||[]).filter(j=>j.cores.includes(cp) && j.ps<=dDT);\n    if(!cand.length)continue;\n    const job=cand[cand.length-1];        // latest ps<=date\n    job.produced+=g; job.daily[dy]=(job.daily[dy]||0)+g;\n  }\n\n  // ---- per-job progress + projected end (worst-case rate) ----\n  for(const j of jobs){\n    const PH=Math.max(1,(j.pe-j.ps)/H);\n    j.ratePlan = j.qty/PH;                                   // ใบ/ชม ตามแผน\n    const started = j.ps<=asOfDT;\n    j.remaining = Math.max(0, j.qty - j.produced);\n    // อัตราจริง: ผลิตแล้ว ÷ เวลาที่ผ่านไปจริง (ถ้ายังไม่เสร็จ = ถึง asOf, ถ้าเสร็จแล้ว = ถึงปลายแผน) — window เดียวกับ produced\n    const endForRate = j.remaining>0 ? asOfDT : j.pe;\n    const elapsedH = started ? Math.max(1,(endForRate-j.ps)/H) : 0;\n    j.rateActual = (started && j.produced>0) ? j.produced/elapsedH : null;\n    // worst-case: ปกติใช้แผน ถ้าอัตราจริงแย่กว่า -> ใช้จริง\n    j.rateUse = (j.rateActual!=null && j.rateActual < j.ratePlan) ? j.rateActual : j.ratePlan;\n    j.pct = j.qty>0 ? Math.min(100, Math.round(j.produced/j.qty*100)) : 0;\n    j.noData = started && j.produced<=0;   // เริ่มแล้วแต่ยังไม่มีข้อมูลผลิต (อาจ map ไม่ตรง/ยังไม่ลงบันทึก) — ไม่ฟันธงว่าเลท\n    // projected end (ยังไม่ cascade) — ขยายเวลาเฉพาะเมื่อ \"มีหลักฐานผลิตช้าจริง\" (produced>0)\n    if(j.remaining<=0){ j.projEndOwn = j.pe; }\n    else if(started && j.produced>0){ j.projEndOwn = new Date(asOfDT.getTime() + j.remaining/j.rateUse*H); }\n    else { j.projEndOwn = j.pe; }          // future / ยังไม่มีข้อมูล -> ถือตามแผน ไม่ขยาย\n    j.spanH = Math.max((j.pe-j.ps)/H, (j.projEndOwn-j.ps)/H);   // ความยาวงาน (รวมขยาย)\n  }\n\n  // ---- cascade per machine: start ถัดไป = max(แผนเดิม, งานก่อนหน้า.เสร็จจริง) ----\n  for(const m in byMachine){\n    let cursor=null;\n    for(const j of byMachine[m]){\n      j.as = (cursor && cursor>j.ps) ? new Date(cursor) : new Date(j.ps);   // actual start\n      j.ae = new Date(j.as.getTime() + j.spanH*H);                          // actual end\n      j.shiftH = (j.as - j.ps)/H;\n      j.extH = Math.max(0, (j.ae - j.pe)/H + (j.shiftH>0?0:0));             // ส่วนขยายของงานเอง (เทียบ pe)\n      j.late = j.produced>0 && (j.projEndOwn - j.pe)/H > 6;                  // เลทเกิน 6 ชม. (ต้องมีข้อมูลผลิตจริง)\n      j.pushed = j.shiftH > 6;\n      cursor = j.ae;\n    }\n  }\n  return {jobs, byMachine, asOfDT};\n}\n\nfunction renderFromComputed({jobs, byMachine, asOfDT}){\n\n  // ---- week window = สัปดาห์ (อา.-ส.) ที่มี asOf ----\n  const a=new Date(asOfDT.getFullYear(),asOfDT.getMonth(),asOfDT.getDate());\n  const weekStart=addDays(a,-a.getDay());\n  const days=Array.from({length:7},(_,i)=>addDays(weekStart,i));\n  const winStart=new Date(days[0].getFullYear(),days[0].getMonth(),days[0].getDate());\n  const TOTAL_H=7*24;\n  const pctPos=ms=>(ms-winStart.getTime())/H/TOTAL_H*100;\n  const inWeek=(s,e)=> e> winStart.getTime() && s < winStart.getTime()+TOTAL_H*H;\n\n  // ---- machines & colors ----\n  const PREF=['PF8/3','PF8/5','PF8/6','PF8/7','PF8/8','ASB250/3','TE'];\n  const present=new Set(jobs.map(j=>j.machine));\n  const machines=[...PREF,...[...present].filter(m=>!PREF.includes(m)).sort()].filter(m=>PREF.includes(m)||present.has(m));\n  const PAL=[['#E8F0FE','#1967D2'],['#FCE8E6','#C5221F'],['#E6F4EA','#137333'],['#FEF7E0','#B06000'],['#F3E8FD','#8430CE'],['#E4F7FB','#00777F'],['#FDE7F3','#B80672'],['#FFF0E0','#A85400']];\n  const colorOf=k=>{let h=0;for(let i=0;i<k.length;i++)h=(h*31+k.charCodeAt(i))>>>0;return PAL[h%PAL.length];};\n  const THDOW=['อาทิตย์','จันทร์','อังคาร','พุธ','พฤหัส','ศุกร์','เสาร์'];\n  const THMON=['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];\n  const dstr=d=>`${d.getDate()} ${THMON[d.getMonth()]}`;\n  const rangeLabel=`${dstr(days[0])} – ${dstr(days[6])} ${days[6].getFullYear()+543}`;\n  const dayHead=days.map(d=>{const wk=d.getDay()===0||d.getDay()===6;return `<div class=\"dh${wk?' we':''}\"><div class=\"dow\">${THDOW[d.getDay()]}</div><div class=\"dnum\">${d.getDate()}/${d.getMonth()+1}</div></div>`;}).join('');\n\n  // ---- render rows ----\n  let anyLate=false, anyPushed=false;\n  const rowsHtml=machines.map(m=>{\n    const mine=(byMachine[m]||[]).slice().sort((x,y)=>x.as-y.as);\n    let bars='';\n    for(const j of mine){\n      const [bg,fg]=colorOf(j.key);\n      const asMs=j.as.getTime(), aeMs=j.ae.getTime(), peMs=j.pe.getTime(), psMs=j.ps.getTime();\n      if(!inWeek(Math.min(asMs,psMs),aeMs)) continue;\n      const L=Math.max(0,pctPos(asMs)), R=Math.min(100,pctPos(aeMs)); const W=Math.max(0.8,R-L);\n      const wide=W>7;\n      // ghost (ตำแหน่งเดิม) ถ้าโดนเลื่อน\n      let ghost='';\n      if(j.pushed){ anyPushed=true; const gL=Math.max(0,pctPos(psMs)),gR=Math.min(100,pctPos(peMs)); const gW=Math.max(2,gR-gL);\n        ghost=`<div class=\"ghost\" style=\"left:${gL}%;width:${gW}%\"><span>เดิม ${dmy(j.ps)}–${dmy(j.pe)}</span></div>`; }\n      // extension overlay: ส่วน [pe..ae] (เทียบตำแหน่งจริง as+span)\n      let ext='';\n      const extStartMs = j.as.getTime() + Math.max(0,(peMs-psMs))/1*1 ; // = as + plannedSpan\n      const extS = j.as.getTime() + (peMs-psMs);                         // ปลายแผน (เลื่อนตาม as)\n      if(j.late && extS<aeMs){ anyLate=true;\n        const eL=Math.max(0,pctPos(extS)), eR=Math.min(100,pctPos(aeMs)); const eW=Math.max(0.6,eR-eL);\n        const extDays=Math.round((aeMs-extS)/H/24*10)/10;\n        ext=`<div class=\"extf\" style=\"left:${eL}%;width:${eW}%\"><span>+${extDays} วัน</span></div>`; }\n      // daily numbers (ล่าสุด ≤5) ถ้ากว้างพอ\n      const dseq=Object.keys(j.daily).sort().map(d=>({d,v:j.daily[d]}));\n      const dailyTxt = (wide && dseq.length)? `<div class=\"bday\">ผลิต: ${dseq.slice(-6).map(x=>fmtK(x.v)).join(' · ')}</div>` : '';\n      const prodLines=j.items.map(it=>`<div class=\"bn\" style=\"color:${fg}\">${esc(it.name.split('|')[0].trim())}${it.qty?` <span class=\"q\">${fmtK(it.qty)} ใบ</span>`:''}</div>`).slice(0,2).join('');\n      const chip = j.pct>0? `<span class=\"chip\" style=\"color:${fg};border-color:${fg}\">ทำแล้ว ${j.pct}%</span>`:'';\n      const tag = j.late? `<span class=\"tag\">▼ เลท</span>` : (j.pushed? `<span class=\"tag push\">→ เลื่อน</span>`:'');\n      // fill = สัดส่วนที่ผลิตแล้ว วางบนช่วง \"ตามแผน\" ของแท่ง (ไม่รวมส่วนขยาย)\n      const plannedFrac = Math.max(0,Math.min(1,(peMs-asMs)/(aeMs-asMs)));\n      const fillW = Math.round(j.pct*plannedFrac);\n      const fill = j.pct>0? `<div class=\"fill\" style=\"width:${fillW}%;background:${fg}22\"></div>`:'';\n      bars += `${ghost}<div class=\"bar${wide?'':' narrow'}\" style=\"left:${L}%;width:${W}%;background:${bg};border-color:${fg}\">\n        ${fill}<div class=\"binner\">${prodLines}${chip}${tag}${dailyTxt}</div></div>${ext}`;\n    }\n    const idle=mine.length?'':'<div class=\"idle\">ว่าง</div>';\n    return `<div class=\"row\"><div class=\"mlabel\">${esc(m)}</div><div class=\"track\">${bars}${idle}</div></div>`;\n  }).join('');\n\n  const totalQty=jobs.reduce((s,j)=>s+j.qty,0);\n  const totalProd=jobs.reduce((s,j)=>s+j.produced,0);\n  const lateN=jobs.filter(j=>j.late).length;\n\n  return `<!doctype html><html lang=\"th\"><head><meta charset=\"utf-8\"><style>\n*{box-sizing:border-box;margin:0;padding:0}\n#cap{width:2200px;background:#fff;font-family:'Noto Sans Thai','Sarabun',sans-serif;color:#1f2733}\n.head{background:linear-gradient(90deg,#1A237E,#283593);color:#fff;padding:20px 26px;display:flex;align-items:center;justify-content:space-between}\n.head .t{font-size:26px;font-weight:800}.head .s{font-size:15px;color:#C5CAE9;margin-top:3px}\n.head .r{text-align:right;font-size:13px;color:#9FA8DA}\n.wrap{padding:14px 18px 18px}\n.sum{display:flex;gap:26px;flex-wrap:wrap;margin-bottom:12px}\n.sum .box{flex:1;min-width:170px;background:#F4F7FC;border:1px solid #E3E7EE;border-left:5px solid #1A237E;border-radius:9px;padding:11px 15px}\n.sum .box.warn{border-left-color:#C5221F}\n.sum .box .lab{font-size:12.5px;color:#6B7280}.sum .box .val{font-size:22px;font-weight:800;color:#1A237E;margin-top:2px}\n.sum .box.warn .val{color:#C5221F}.sum .box .val span{font-size:13px;font-weight:600;color:#6B7280}\n.grid{border:1px solid #E3E7EE;border-radius:10px;overflow:hidden}\n.ghead{display:grid;grid-template-columns:130px 1fr;background:#F7F9FC;border-bottom:2px solid #E3E7EE}\n.corner{padding:10px;font-weight:700;color:#5B6472;display:flex;align-items:center;justify-content:center;border-right:1px solid #E3E7EE}\n.days{display:grid;grid-template-columns:repeat(7,1fr)}\n.dh{padding:8px 4px;text-align:center;border-right:1px solid #E3E7EE}.dh:last-child{border-right:0}.dh.we{background:#FBEFEA}\n.dh .dow{font-weight:700;font-size:14px}.dh .dnum{font-size:12px;color:#6B7280;margin-top:2px}\n.row{display:grid;grid-template-columns:130px 1fr;border-bottom:1px solid #EEF1F5;min-height:104px}.row:last-child{border-bottom:0}\n.mlabel{display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;color:#263238;background:#F7F9FC;border-right:1px solid #E3E7EE;padding:6px}\n.track{position:relative;background:\n  repeating-linear-gradient(90deg,transparent 0,transparent calc(100%/7 - 1px),#E9EDF3 calc(100%/7 - 1px),#E9EDF3 calc(100%/7)),\n  repeating-linear-gradient(90deg,transparent 0,transparent calc(100%/28 - 1px),#F4F6FA calc(100%/28 - 1px),#F4F6FA calc(100%/28));min-height:104px}\n.bar{position:absolute;top:8px;height:60px;border-left:4px solid;border-radius:6px;overflow:hidden;box-shadow:0 1px 2px rgba(20,30,50,.08)}\n.bar .fill{position:absolute;left:0;top:0;bottom:0;z-index:0}\n.binner{position:relative;z-index:1;padding:5px 8px}\n.bar .bn{font-weight:800;font-size:13px;line-height:1.16}\n.bar .bn .q{font-weight:600;font-size:.82em;opacity:.92}\n.chip{display:inline-block;font-size:10.5px;font-weight:800;border:1.5px solid;border-radius:20px;padding:0 7px;margin-top:3px;background:#ffffffcc}\n.tag{display:inline-block;font-size:10.5px;font-weight:800;color:#fff;background:#C5221F;border-radius:5px;padding:1px 7px;margin-top:3px;margin-left:4px}\n.tag.push{background:#B06000}\n.bday{font-size:10.5px;color:#5B6472;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}\n.bar.narrow .bn{font-size:11px}.bar.narrow .binner{padding:4px 5px}\n.ghost{position:absolute;top:74px;height:22px;border:2px dashed #AEB4BD;border-radius:5px;background:transparent;display:flex;align-items:center;justify-content:center}\n.ghost span{font-size:10px;color:#9AA3AF;font-weight:700;white-space:nowrap}\n.extf{position:absolute;top:8px;height:60px;border:2px dashed #C5221F;border-radius:6px;\n  background:repeating-linear-gradient(45deg,rgba(197,34,31,.05) 0,rgba(197,34,31,.05) 6px,rgba(197,34,31,.11) 6px,rgba(197,34,31,.11) 12px);\n  display:flex;align-items:center;justify-content:center;z-index:2}\n.extf span{font-size:11px;font-weight:800;color:#C5221F;text-align:center;line-height:1.1}\n.idle{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#AEB4BD;font-size:13px}\n.legend{display:flex;flex-wrap:wrap;gap:10px 18px;padding:12px 4px 2px;font-size:12.5px;color:#5B6472}\n.legend .k{display:flex;align-items:center;gap:6px}.legend .sw{width:16px;height:16px;border-radius:4px;border:2px solid}\n.legend .sw.dash{border-style:dashed}\n.note{font-size:12px;color:#8A929E;margin-top:6px}\n</style></head><body><div id=\"cap\">\n  <div class=\"head\"><div><div class=\"t\">ตารางการผลิตประจำสัปดาห์ — ความคืบหน้าจริง</div><div class=\"s\">TPI · ${rangeLabel} · ข้อมูล ณ ${asOfDT.getDate()}/${asOfDT.getMonth()+1}</div></div>\n  <div class=\"r\">แถบทึบ = แผนหลังคิดผลจริง · กรอบแดง = เวลาที่ขยาย<br>กรอบเทา = ตำแหน่งเดิมก่อนเลื่อน</div></div>\n  <div class=\"wrap\">\n    <div class=\"sum\">\n      <div class=\"box\"><div class=\"lab\">ยอดที่ต้องผลิตรวมสัปดาห์</div><div class=\"val\">${fmt(totalQty)} <span>ใบ</span></div></div>\n      <div class=\"box\"><div class=\"lab\">ผลิตแล้วรวม (จาก Loss)</div><div class=\"val\">${fmt(totalProd)} <span>ใบ</span></div></div>\n      <div class=\"box${lateN?' warn':''}\"><div class=\"lab\">งานที่ต่ำกว่าเป้า/ต้องขยายเวลา</div><div class=\"val\">${lateN} <span>งาน</span></div></div>\n    </div>\n    <div class=\"grid\"><div class=\"ghead\"><div class=\"corner\">เครื่องจักร</div><div class=\"days\">${dayHead}</div></div>${rowsHtml}</div>\n    <div class=\"legend\">\n      <div class=\"k\"><span class=\"sw\" style=\"border-color:#137333;background:#E6F4EA\"></span>แถบทึบ = งาน (แรเงา = สัดส่วนที่ผลิตแล้ว)</div>\n      <div class=\"k\"><span class=\"sw dash\" style=\"border-color:#C5221F\"></span>กรอบแดง = ช่วงเวลาที่ขยาย (ผลิตไม่ทันเป้า)</div>\n      <div class=\"k\"><span class=\"sw dash\" style=\"border-color:#AEB4BD\"></span>กรอบเทา = ตำแหน่งเดิมตามแผน (ก่อนเลื่อน)</div>\n    </div>\n    <div class=\"note\">* ยอดผลิตจริงรายวันจากชีต Loss report \"2026\" (ของดี/วัน) · เวลาขยาย = คงเหลือ ÷ อัตราผลิต (แผนหรือจริงที่แย่กว่า) · เลื่อนงานถัดไป = งานก่อนหน้าเสร็จช้า</div>\n  </div>\n</div></body></html>`;\n}\n\nfunction buildHtml(input){ return renderFromComputed(computeJobs(input)); }\n\n// ---- write-back rows (อัปเดตในที่ ตาม row_number) ----\nconst fmtYMD2=dt=>`${dt.getFullYear()}-${pad(dt.getMonth()+1,2)}-${pad(dt.getDate(),2)}`;\nconst fmtHM=dt=>`${pad(dt.getHours(),2)}:${pad(dt.getMinutes(),2)}`;\nconst fmtDMY2=dt=>`${dt.getDate()}/${dt.getMonth()+1}/${dt.getFullYear()}`;\n\n// รายการ T1: อัปเดต start/end เฉพาะงานที่ schedule เปลี่ยน (เลื่อน/ขยาย)\nfunction raykWriteRows(jobs){\n  const out=[];\n  for(const j of jobs){\n    if(!(j.late||j.pushed)) continue;\n    if(j.rowNumber==null) continue;\n    out.push({row_number:j.rowNumber,\n      'วันที่เริ่มผลิตสินค้า':fmtYMD2(j.as),'เวลาเริ่มผลิตสินค้า':fmtHM(j.as),\n      'วันที่สิ้นสุดผลิตสินค้า':fmtYMD2(j.ae),'เวลาสิ้นสุดผลิตสินค้า':fmtHM(j.ae)});\n  }\n  return out;\n}\n\n// Planning: จับแถว (เครื่อง+core) -> งานที่เลื่อน -> อัปเดต วันที่ผลิต = เริ่มจริงใหม่ (as)\nfunction planWriteRows(jobs, planningRows){\n  const out=[];\n  for(const r of (planningRows||[])){\n    if(r['row_number']==null) continue;\n    const pm=normMachine(r['เครื่องจักร']); const pc=core(r['ชื่อสินค้า']);\n    const cand=jobs.filter(j=>(j.late||j.pushed)&&normMachine(j.machine)===pm&&j.cores.includes(pc));\n    if(!cand.length) continue;\n    const pd=toYMD(r['วันที่ผลิต']);\n    let job=cand[0];\n    if(pd){ const pdMs=mkDT(pd,'00:00').getTime(); job=cand.reduce((b,j)=>Math.abs(j.ps-pdMs)<Math.abs(b.ps-pdMs)?j:b,cand[0]); }\n    out.push({row_number:r['row_number'],'วันที่ผลิต':fmtDMY2(job.as)});\n  }\n  return out;\n}\n\n// รวมทุกอย่างในครั้งเดียว (ใช้ในโหนด Build HTML)\nfunction buildAll(input){\n  const c=computeJobs(input);\n  return { html:renderFromComputed(c),\n           raykRows:raykWriteRows(c.jobs),\n           planRows:planWriteRows(c.jobs, input.planningRows) };\n}\n\n\n// ================= plumbing (n8n) =================\nconst grab = n => { try { return $(n).all().map(i => i.json); } catch (e) { return []; } };\nconst rows = grab('อ่านตารางผลิต');\nconst loss = grab('อ่าน Loss');\nconst mapRows = grab('อ่าน map');\nconst planningRows = grab('อ่าน Planning');\nconst _pick = (r, subs) => { const ks = Object.keys(r); for (const s of [].concat(subs)) { const k = ks.find(k => k.replace(/\\s+/g,' ').includes(s)); if (k) return r[k]; } };\nconst mapDict = {};\nfor (const r of mapRows) { const f = String(_pick(r,'ชื่อในรายงาน') ?? '').trim(), t = String(_pick(r,'ชื่อในแผน') ?? '').trim(); if (f && t && t !== '—') mapDict[f] = t; }\n// ============================================================\n// วันที่อ้างอิงประเทศไทย Asia/Bangkok\n// ไม่ใช้ timezone ของเครื่อง Server\n// ============================================================\n\nfunction getBangkokDate() {\n  const parts = new Intl.DateTimeFormat('en-US', {\n    timeZone: 'Asia/Bangkok',\n    year: 'numeric',\n    month: '2-digit',\n    day: '2-digit'\n  }).formatToParts(new Date());\n\n  const p = {};\n\n  for (const x of parts) {\n    if (x.type !== 'literal') {\n      p[x.type] = x.value;\n    }\n  }\n\n  return {\n    year: Number(p.year),\n    month: Number(p.month),\n    day: Number(p.day),\n    ymd: `${p.year}-${p.month}-${p.day}`,\n    dmy: `${p.day}/${p.month}/${p.year}`\n  };\n}\n\nconst bkkToday = getBangkokDate();\n\n// วันที่สำหรับคำนวณกราฟ / Loss / สัปดาห์\nconst asOf = bkkToday.ymd;\n\nconst { html, raykRows, planRows } = buildAll({\n  rows,\n  loss,\n  mapDict,\n  planningRows,\n  asOf\n});\n\nconst renderUrl = 'http://180.183.247.18:8007/render';\nconst dropboxFolder = '/TPI/plan';\n\n// วันที่สำหรับชื่อไฟล์ Dropbox\nconst targetDate = bkkToday.dmy;\n\nreturn [{\n  json: {\n    html,\n    renderUrl,\n    dropboxFolder,\n    targetDate,\n    asOf,\n    raykRows,\n    planRows\n  }\n}];\n"
+      },
+      "id": "f3e42df0-34a9-44a3-ab37-6e4e46df6481",
+      "name": "Build HTML",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        608,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $json.renderUrl }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { html: $json.html, selector: '#cap', device_scale: 1 } }}",
+        "options": {
+          "timeout": 120000
+        }
+      },
+      "id": "094af8b7-56e9-4ae4-b20a-9e7d06e0f9c3",
+      "name": "Render image (self-host)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        832,
+        400
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "h0xIvO35Pi6pFTpJ",
+          "name": "Header Auth account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.url }}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "file"
+            }
+          },
+          "timeout": 60000
+        }
+      },
+      "id": "e88efd2f-1e0c-4f3a-b129-b90570d12476",
+      "name": "Download image",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1040,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "authentication": "oAuth2",
+        "path": "={{ $('Build HTML').item.json.dropboxFolder + '/plan-' + $('Build HTML').item.json.targetDate.split('/').join('-') + '.png' }}",
+        "binaryData": true
+      },
+      "id": "34bf2888-5018-4b94-98eb-b34de6149857",
+      "name": "Upload a file",
+      "type": "n8n-nodes-base.dropbox",
+      "typeVersion": 1,
+      "position": [
+        1232,
+        400
+      ],
+      "credentials": {
+        "dropboxOAuth2Api": {
+          "id": "Rd4gglQNfl6e94rE",
+          "name": "Dropbox-n8n-https"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.line.me/v2/bot/message/push",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer oi8iWesT6LfWpBeUiiGcl2MDqRoui2c1oWpH9NnOOcDvjqdeYV2hsvyLHOHmUQyFYDr35gOI93l7QKa6UMoKLbstEyfJHHoRJyi0LN71gl5bkM+I1R06GWOKbpjbYhflH6VZImk/9yh/S7Zl8wvG1wdB04t89/1O/w1cDnyilFU="
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { to: $('Config').first().json.lineTo, messages: [ { type: 'image', originalContentUrl: $json.link, previewImageUrl: $json.link }, { type: 'text', text: $('สรุปกะ (ข้อความ)').first().json.summaryText } ] } }}",
+        "options": {}
+      },
+      "id": "0b5832ea-a00f-413d-85f6-54ea815ccd39",
+      "name": "Send LINE image",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2144,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "126RnDrw2vDYFn8XTxuhvq14eAxwnAcRhbFRXEDejSQU",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 1989503455,
+          "mode": "list",
+          "cachedResultName": "2026",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/126RnDrw2vDYFn8XTxuhvq14eAxwnAcRhbFRXEDejSQU/edit#gid=1989503455"
+        },
+        "options": {
+          "dataLocationOnSheet": {
+            "values": {
+              "rangeDefinition": "specifyRange",
+              "headerRow": 2,
+              "firstDataRow": 3
+            }
+          }
+        }
+      },
+      "id": "18cfee5d-1084-4e60-ba15-afecb78cf057",
+      "name": "อ่าน Loss",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        384,
+        80
+      ],
+      "executeOnce": true,
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "a4Xw1y7SaDpe3N5m",
+          "name": "dts-n8n"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "18owLhg94QmYCXfQ_jOlCuoPkSV4a1APprAjYJN4Wj8w",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 988247931,
+          "mode": "list",
+          "cachedResultName": "map_loss_product",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/18owLhg94QmYCXfQ_jOlCuoPkSV4a1APprAjYJN4Wj8w/edit#gid=988247931"
+        },
+        "options": {}
+      },
+      "id": "d3a6163d-b52c-4e61-9332-a35803f51183",
+      "name": "อ่าน map",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        384,
+        240
+      ],
+      "executeOnce": true,
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "a4Xw1y7SaDpe3N5m",
+          "name": "dts-n8n"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "18owLhg94QmYCXfQ_jOlCuoPkSV4a1APprAjYJN4Wj8w",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 1559920379,
+          "mode": "list",
+          "cachedResultName": "TPI | Production Planning| 2026"
+        },
+        "options": {}
+      },
+      "id": "33f63c1e-bfc0-4db3-a71a-3039221747af",
+      "name": "อ่าน Planning",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        384,
+        400
+      ],
+      "executeOnce": true,
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "a4Xw1y7SaDpe3N5m",
+          "name": "dts-n8n"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "return ($('Build HTML').first().json.raykRows || []).map(r => ({ json: r }));"
+      },
+      "id": "973cc8be-01cb-495c-9e41-864e887ae2ee",
+      "name": "เตรียมเขียน รายการ",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2368,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentId": {
+          "__rl": true,
+          "value": "18owLhg94QmYCXfQ_jOlCuoPkSV4a1APprAjYJN4Wj8w",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 1421446568,
+          "mode": "list",
+          "cachedResultName": "รายการสั่งผลิตสินค้า T1"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "row_number": "={{ $json.row_number }}",
+            "วันที่เริ่มผลิตสินค้า": "={{ $json[\"วันที่เริ่มผลิตสินค้า\"] }}",
+            "เวลาเริ่มผลิตสินค้า": "={{ $json[\"เวลาเริ่มผลิตสินค้า\"] }}",
+            "วันที่สิ้นสุดผลิตสินค้า": "={{ $json[\"วันที่สิ้นสุดผลิตสินค้า\"] }}",
+            "เวลาสิ้นสุดผลิตสินค้า": "={{ $json[\"เวลาสิ้นสุดผลิตสินค้า\"] }}"
+          },
+          "matchingColumns": [
+            "row_number"
+          ],
+          "schema": [
+            {
+              "id": "row_number",
+              "displayName": "row_number",
+              "required": false,
+              "defaultMatch": true,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "วันที่เริ่มผลิตสินค้า",
+              "displayName": "วันที่เริ่มผลิตสินค้า",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "เวลาเริ่มผลิตสินค้า",
+              "displayName": "เวลาเริ่มผลิตสินค้า",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "วันที่สิ้นสุดผลิตสินค้า",
+              "displayName": "วันที่สิ้นสุดผลิตสินค้า",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "เวลาสิ้นสุดผลิตสินค้า",
+              "displayName": "เวลาสิ้นสุดผลิตสินค้า",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "id": "1e9b9880-9fee-45c0-8ced-a698688e93b2",
+      "name": "อัปเดต รายการ T1",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        2592,
+        400
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "a4Xw1y7SaDpe3N5m",
+          "name": "dts-n8n"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "return ($('Build HTML').first().json.planRows || []).map(r => ({ json: r }));"
+      },
+      "id": "25323777-2c83-4ecb-bfe5-e8312a855751",
+      "name": "เตรียมเขียน Planning",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2816,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentId": {
+          "__rl": true,
+          "value": "18owLhg94QmYCXfQ_jOlCuoPkSV4a1APprAjYJN4Wj8w",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 1559920379,
+          "mode": "list",
+          "cachedResultName": "TPI | Production Planning| 2026"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "row_number": "={{ $json.row_number }}",
+            "วันที่ผลิต": "={{ $json[\"วันที่ผลิต\"] }}"
+          },
+          "matchingColumns": [
+            "row_number"
+          ],
+          "schema": [
+            {
+              "id": "row_number",
+              "displayName": "row_number",
+              "required": false,
+              "defaultMatch": true,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "วันที่ผลิต",
+              "displayName": "วันที่ผลิต",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "id": "71843e8c-d04a-4cee-9ff5-bbc6f17db862",
+      "name": "อัปเดต Planning",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        3024,
+        400
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "a4Xw1y7SaDpe3N5m",
+          "name": "dts-n8n"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// ============================================================\n// สรุปกะ (ข้อความ)\n// FIX: วันที่อ้างอิง Asia/Bangkok เสมอ\n// ============================================================\n\nconst SUMMARY_DAYS = 1;\n\nconst pad2 = n => String(n).padStart(2, '0');\n\nconst num = v =>\n  Number(String(v == null ? '' : v).replace(/,/g, '')) || 0;\n\n\n// ============================================================\n// หา \"วันนี้\" ตามเวลาไทยโดยตรง\n// ไม่อิง timezone ของ server\n// ============================================================\nfunction getBangkokToday() {\n  const parts = new Intl.DateTimeFormat('en-US', {\n    timeZone: 'Asia/Bangkok',\n    year: 'numeric',\n    month: '2-digit',\n    day: '2-digit'\n  }).formatToParts(new Date());\n\n  const obj = {};\n\n  for (const p of parts) {\n    if (p.type !== 'literal') {\n      obj[p.type] = p.value;\n    }\n  }\n\n  return `${obj.year}-${obj.month}-${obj.day}`;\n}\n\n\n// ============================================================\n// Convert วันที่จาก Google Sheet -> YYYY-MM-DD\n// ============================================================\nfunction toYMD(v) {\n\n  if (v == null || v === '') return null;\n\n  const s = String(v).trim();\n\n\n  // Google Sheets serial date\n  if (/^\\d+(\\.\\d+)?$/.test(s)) {\n\n    const n = parseFloat(s);\n\n    if (n > 20000 && n < 80000) {\n\n      const d = new Date(\n        Date.UTC(1899, 11, 30) +\n        Math.floor(n) * 86400000\n      );\n\n      return (\n        d.getUTCFullYear() + '-' +\n        pad2(d.getUTCMonth() + 1) + '-' +\n        pad2(d.getUTCDate())\n      );\n    }\n  }\n\n\n  // YYYY-MM-DD\n  let m = s.match(\n    /^(\\d{4})-(\\d{1,2})-(\\d{1,2})/\n  );\n\n  if (m) {\n\n    let Y = +m[1];\n\n    if (Y > 2400) Y -= 543;\n\n    return (\n      Y + '-' +\n      pad2(+m[2]) + '-' +\n      pad2(+m[3])\n    );\n  }\n\n\n  // DD/MM/YYYY\n  m = s.match(\n    /^(\\d{1,2})\\/(\\d{1,2})\\/(\\d{2,4})/\n  );\n\n  if (m) {\n\n    let Y = +m[3];\n\n    if (Y > 2400) Y -= 543;\n    if (Y < 100) Y += 2000;\n\n    return (\n      Y + '-' +\n      pad2(+m[2]) + '-' +\n      pad2(+m[1])\n    );\n  }\n\n\n  return null;\n}\n\n\n// ============================================================\n// สร้าง Date แบบ UTC\n//\n// เราใช้ UTC เป็นตัวแทน \"เวลาโรงงาน\"\n// เพื่อไม่ให้ timezone ของ Server มาเลื่อนเวลา\n// ============================================================\nfunction mkDT(ymd, t) {\n\n  if (!ymd) return null;\n\n  let hh = 8;\n  let mm = 0;\n\n  const m = String(\n    t == null ? '' : t\n  ).match(/(\\d{1,2}):(\\d{1,2})/);\n\n  if (m) {\n    hh = +m[1];\n    mm = +m[2];\n  }\n\n  const [y, mo, d] =\n    ymd.split('-').map(Number);\n\n  return new Date(\n    Date.UTC(\n      y,\n      mo - 1,\n      d,\n      hh,\n      mm,\n      0\n    )\n  );\n}\n\n\n// ============================================================\n// สร้างข้อความสรุปกะ\n// ============================================================\nfunction buildShiftSummary(jobs, asOfYMD) {\n\n  const beYY = d =>\n    pad2(\n      (d.getUTCFullYear() + 543) % 100\n    );\n\n  const dLabel = d =>\n    `${d.getUTCDate()}/${d.getUTCMonth() + 1}/${beYY(d)}`;\n\n  const hm = d =>\n    `${pad2(d.getUTCHours())}:${pad2(d.getUTCMinutes())}`;\n\n  const SHIFTS = [\n    { n: 1, h: 6 },\n    { n: 2, h: 14 },\n    { n: 3, h: 22 }\n  ];\n\n  const SEP =\n    '--------------------------------------';\n\n\n  // วันนี้ เวลา 00:00\n  const a =\n    mkDT(asOfYMD, '00:00');\n\n  const blocks = [];\n\n\n  // ==========================================================\n  // Loop วัน\n  // ==========================================================\n  for (\n    let di = 0;\n    di < SUMMARY_DAYS;\n    di++\n  ) {\n\n    const day =\n      new Date(\n        a.getTime() +\n        di * 24 * 3600000\n      );\n\n\n    // ========================================================\n    // Loop กะ\n    // ========================================================\n    for (const sh of SHIFTS) {\n\n      const S =\n        new Date(\n          Date.UTC(\n            day.getUTCFullYear(),\n            day.getUTCMonth(),\n            day.getUTCDate(),\n            sh.h,\n            0,\n            0\n          )\n        );\n\n\n      // กะละ 8 ชั่วโมง\n      const E =\n        new Date(\n          S.getTime() +\n          8 * 3600000\n        );\n\n\n      // งานที่ทับกับช่วงกะนี้\n      const inShift =\n        jobs.filter(\n          j =>\n            j.as < E &&\n            j.ae > S\n        );\n\n\n      if (!inShift.length) {\n        continue;\n      }\n\n\n      // ======================================================\n      // หาจำนวนคนสูงสุดพร้อมกัน\n      // ======================================================\n      const evts = [];\n\n      for (const j of inShift) {\n\n        const s =\n          Math.max(\n            S.getTime(),\n            j.as.getTime()\n          );\n\n        const e =\n          Math.min(\n            E.getTime(),\n            j.ae.getTime()\n          );\n\n\n        if (e <= s) continue;\n\n\n        evts.push([\n          s,\n          +j.workers\n        ]);\n\n        evts.push([\n          e,\n          -j.workers\n        ]);\n      }\n\n\n      // เวลาเดียวกัน:\n      // จบงานก่อน แล้วค่อยเริ่มงานใหม่\n      evts.sort(\n        (x, y) =>\n          x[0] - y[0] ||\n          x[1] - y[1]\n      );\n\n\n      let cur = 0;\n      let mx = 0;\n\n      for (const [, w] of evts) {\n\n        cur += w;\n\n        if (cur > mx) {\n          mx = cur;\n        }\n      }\n\n\n      // ======================================================\n      // Group ตามเครื่อง\n      // ======================================================\n      const byM = {};\n\n      for (const j of inShift) {\n\n        if (!byM[j.machine]) {\n          byM[j.machine] = [];\n        }\n\n        byM[j.machine].push(j);\n      }\n\n\n      const machs =\n        Object.keys(byM).sort(\n          (x, y) => {\n\n            const tx =\n              Math.min(\n                ...byM[x].map(\n                  j => j.as.getTime()\n                )\n              );\n\n            const ty =\n              Math.min(\n                ...byM[y].map(\n                  j => j.as.getTime()\n                )\n              );\n\n            return tx - ty;\n          }\n        );\n\n\n      // ======================================================\n      // สร้างข้อความแต่ละเครื่อง\n      // ======================================================\n      const lines =\n        machs.map(m => {\n\n          const js =\n            byM[m].sort(\n              (x, y) =>\n                x.as - y.as\n            );\n\n\n          const w =\n            Math.max(\n              ...js.map(\n                j => j.workers\n              )\n            );\n\n\n          const first =\n            js[0];\n\n\n          let note = '';\n\n\n          // ==================================================\n          // ตรวจ handoff\n          // ==================================================\n          if (\n            first.as.getTime() >\n            S.getTime() + 60000\n          ) {\n\n            const pred =\n              inShift\n                .filter(\n                  j =>\n                    j.machine !== m &&\n\n                    Math.abs(\n                      j.ae.getTime() -\n                      first.as.getTime()\n                    ) <= 60000 &&\n\n                    j.ae.getTime() >=\n                    S.getTime()\n                )\n                .sort(\n                  (x, y) =>\n                    y.ae - x.ae\n                )[0];\n\n\n            if (pred) {\n\n              note =\n                ` (เริ่มทำต่อจาก ${pred.machine}` +\n                ` ครบ ตอนเวลา ${hm(first.as)})`;\n            }\n          }\n\n\n          return (\n            `- เครื่อง ${String(m).padEnd(8)}` +\n            `= ${w} คน${note}`\n          );\n        });\n\n\n      // ======================================================\n      // Header ของแต่ละกะ\n      // ======================================================\n      blocks.push(\n        `วันที่ ${dLabel(day)} รอบ ${sh.n}\\n\\n` +\n        `มีพนักงานเครื่อง = ${mx} คน\\n\\n` +\n        lines.join('\\n')\n      );\n    }\n  }\n\n\n  // ==========================================================\n  // ไม่มีงาน\n  // ==========================================================\n  if (!blocks.length) {\n\n    const [\n      y,\n      m,\n      d\n    ] =\n      asOfYMD.split('-');\n\n    return (\n      `ไม่มีงานผลิตในวันที่ ` +\n      `${Number(d)}/${Number(m)}/${y}`\n    );\n  }\n\n\n  // ==========================================================\n  // LINE จำกัดข้อความ\n  // ==========================================================\n  const MAX = 4800;\n\n  let text = '';\n  let cut = false;\n\n\n  for (const b of blocks) {\n\n    const next =\n      text\n        ? text +\n          `\\n${SEP}\\n\\n` +\n          b\n        : b;\n\n\n    if (next.length > MAX) {\n      cut = true;\n      break;\n    }\n\n\n    text = next;\n  }\n\n\n  if (cut) {\n\n    text +=\n      `\\n${SEP}\\n\\n` +\n      `(สรุปต่อได้ไม่หมดในข้อความเดียว — ` +\n      `ดูรายละเอียดที่เหลือในรูป)`;\n  }\n\n\n  return text;\n}\n\n\n// ============================================================\n// อ่านตารางผลิต\n// ============================================================\nconst rows = (() => {\n\n  try {\n\n    return $('อ่านตารางผลิต')\n      .all()\n      .map(i => i.json);\n\n  } catch (e) {\n\n    return [];\n  }\n\n})();\n\n\n// ============================================================\n// สร้าง jobs\n// ============================================================\nconst jobs = [];\n\n\nfor (const r of rows) {\n\n  const machine =\n    String(\n      r['เครื่องจักร'] || ''\n    ).trim();\n\n\n  const sd =\n    toYMD(\n      r['วันที่เริ่มผลิตสินค้า']\n    );\n\n\n  if (!machine || !sd) {\n    continue;\n  }\n\n\n  const ed =\n    toYMD(\n      r['วันที่สิ้นสุดผลิตสินค้า']\n    ) || sd;\n\n\n  let as =\n    mkDT(\n      sd,\n      r['เวลาเริ่มผลิตสินค้า']\n    );\n\n\n  let ae =\n    mkDT(\n      ed,\n      r['เวลาสิ้นสุดผลิตสินค้า']\n    );\n\n\n  if (!as || !ae) {\n    continue;\n  }\n\n\n  // ป้องกันเวลาจบ <= เวลาเริ่ม\n  if (ae <= as) {\n\n    ae =\n      new Date(\n        as.getTime() +\n        3600000\n      );\n  }\n\n\n  jobs.push({\n    machine,\n    as,\n    ae,\n    workers:\n      num(\n        r['จำนวนคนงาน']\n      ) || 1\n  });\n}\n\n\n// ============================================================\n// สำคัญ:\n// ใช้วันที่ประเทศไทยโดยตรง\n// ============================================================\nconst asOfYMD =\n  getBangkokToday();\n\n\nconst summaryText =\n  buildShiftSummary(\n    jobs,\n    asOfYMD\n  );\n\n\n// ============================================================\n// ส่ง field เดิมต่อไปด้วย\n// ============================================================\nconst passthru =\n  (\n    $input.first() &&\n    $input.first().json\n  )\n    ? $input.first().json\n    : {};\n\n\n// ============================================================\n// OUTPUT\n// ============================================================\nreturn [\n  {\n    json: {\n      ...passthru,\n\n      // เอาไว้ตรวจใน Execution\n      summaryDate: asOfYMD,\n\n      summaryText\n    }\n  }\n];"
+      },
+      "id": "b3d00ab1-ab4e-4509-92db-3e505fee270d",
+      "name": "สรุปกะ (ข้อความ)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1920,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// แปลงลิงก์รูป — permanent shared link -> raw + ดัก 409 shared_link_already_exists\n// รับ output จากโหนด \"Create shared link\" (create_shared_link_with_settings, neverError:true)\n//   สำเร็จ (200):            { url, ... }\n//   ลิงก์มีอยู่แล้ว (409):    { error_summary, error:{ \".tag\":\"shared_link_already_exists\", shared_link_already_exists:{ metadata:{ url } } } }\n// คืน { ...passthru, link } เพื่อให้ \"สรุปกะ (ข้อความ)\" ส่งต่อ แล้ว \"Send LINE image\" ใช้ $json.link ได้เหมือนเดิม (ไม่ต้องแก้ 2 โหนดนั้น)\n// ห่อ IIFE กัน n8n 2.10.4 คอมไพล์ source ซ้ำ 2 รอบ (top-level const ชนตัวเอง)\nreturn (function () {\n  const j = ($input.first() && $input.first().json) ? $input.first().json : {};\n\n  // 1) หา url — จาก success หรือดึงจาก error 409 (ลิงก์เคยสร้างไว้แล้ว = วันเดิมรันซ้ำ)\n  let url = j.url || null;\n  if (!url && j.error && j.error['.tag'] === 'shared_link_already_exists') {\n    url = j.error.shared_link_already_exists\n      && j.error.shared_link_already_exists.metadata\n      && j.error.shared_link_already_exists.metadata.url;\n  }\n  if (!url) {\n    // error อื่น (เช่น missing_scope/sharing.write, path/not_found) -> โยนให้เห็นชัด\n    throw new Error('Create shared link ไม่คืน url — ' + (j.error_summary || JSON.stringify(j).slice(0, 300)));\n  }\n\n  // 2) permanent link -> raw : ให้ Dropbox เสิร์ฟไบต์รูปผ่านลิงก์ถาวร (ไม่หมดอายุ 4 ชม.เหมือน temp link)\n  //    permanent link มาแบบ https://www.dropbox.com/scl/fi/.../<name>?rlkey=...&st=...&dl=0\n  //    สลับ dl=0 -> raw=1 (ถ้าไม่มี dl ให้เติม raw=1)\n  //    * fallback ถ้าบางที่ยังแตก: link = link.replace('www.dropbox.com','dl.dropboxusercontent.com')\n  let link = String(url);\n  if (/[?&]dl=\\d/.test(link)) link = link.replace(/([?&])dl=\\d/, '$1raw=1');\n  else if (!/[?&]raw=1/.test(link)) link += (link.includes('?') ? '&' : '?') + 'raw=1';\n\n  return [{ json: { ...j, link } }];\n})();\n"
+      },
+      "id": "7c3689e6-1fe3-49ad-ae29-97961fd89ff9",
+      "name": "แปลงลิงก์รูป",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1696,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.dropboxapi.com/2/sharing/create_shared_link_with_settings",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "oAuth2Api",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { path: $('Build HTML').item.json.dropboxFolder + '/plan-' + $('Build HTML').item.json.targetDate.split('/').join('-') + '.png' } }}",
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true,
+              "responseFormat": "json"
+            }
+          },
+          "timeout": 60000
+        }
+      },
+      "id": "40bd10cc-2a63-4057-a892-015ad4227d84",
+      "name": "Create shared link",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1456,
+        400
+      ],
+      "credentials": {
+        "oAuth2Api": {
+          "id": "lQTiHgHPdmwuuWGE",
+          "name": "Dropbox-n8n-https"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.errorTrigger",
+      "typeVersion": 1,
+      "position": [
+        -320,
+        -400
+      ],
+      "id": "f7bf7abe-7141-4829-9bde-b0cf4675dfd4",
+      "name": "Error Trigger"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://ntfy.sh/tpi-err-n8n-5697b86b-c202-46c6-aba0-132a5d5f1641",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Title",
+              "value": "n8n Workflow Error"
+            },
+            {
+              "name": "Priority",
+              "value": "high"
+            },
+            {
+              "name": "Tags",
+              "value": "warning"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "text/plain",
+        "body": "={{ \"❌ n8n Workflow Error\\n\\nWorkflow: \" + ($json.workflow?.name ?? \"FM-DQM-002\") + \"\\nNode: \" + ($json.execution?.lastNodeExecuted ?? \"Unknown\") + \"\\nError: \" + ($json.execution?.error?.message ?? $json.error?.message ?? \"Unknown error\") + \"\\nExecution ID: \" + ($json.execution?.id ?? \"-\") + \"\\nเวลา: \" + $now.toFormat('dd/MM/yyyy HH:mm:ss') }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        -48,
+        -560
+      ],
+      "id": "eea1b4a9-0273-4b74-bbbc-f3f76d9a345c",
+      "name": "err-ntfy",
+      "retryOnFail": true,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.line.me/v2/bot/message/push",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer oi8iWesT6LfWpBeUiiGcl2MDqRoui2c1oWpH9NnOOcDvjqdeYV2hsvyLHOHmUQyFYDr35gOI93l7QKa6UMoKLbstEyfJHHoRJyi0LN71gl5bkM+I1R06GWOKbpjbYhflH6VZImk/9yh/S7Zl8wvG1wdB04t89/1O/w1cDnyilFU="
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { \"to\": \"Cb194ea274dec9d8d37447f0045b7b36d\", \"messages\": [ { \"type\": \"text\", \"text\": \"❌ n8n Workflow Error\\n\\nWorkflow: \" + ($json.workflow?.name ?? \"FM-DQM-002\") + \"\\nNode: \" + ($json.execution?.lastNodeExecuted ?? \"Unknown\") + \"\\nError: \" + ($json.execution?.error?.message ?? $json.error?.message ?? \"Unknown error\") + \"\\nExecution ID: \" + ($json.execution?.id ?? \"-\") + \"\\nเวลา: \" + $now.toFormat('dd/MM/yyyy HH:mm:ss') } ] } }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        -48,
+        -400
+      ],
+      "id": "09e72586-caee-4ce9-a4e6-8ff9fb48914d",
+      "name": "err-line",
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.line.me/v2/bot/message/push",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer oi8iWesT6LfWpBeUiiGcl2MDqRoui2c1oWpH9NnOOcDvjqdeYV2hsvyLHOHmUQyFYDr35gOI93l7QKa6UMoKLbstEyfJHHoRJyi0LN71gl5bkM+I1R06GWOKbpjbYhflH6VZImk/9yh/S7Zl8wvG1wdB04t89/1O/w1cDnyilFU="
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { to: $('Config').first().json.lineTo, messages: [ { type: 'image', originalContentUrl: $json.link, previewImageUrl: $json.link }, { type: 'text', text: $('สรุปกะ (ข้อความ)').first().json.summaryText } ] } }}",
+        "options": {}
+      },
+      "id": "4535de3b-d2fd-4796-b945-20db10fd2adc",
+      "name": "Send LINE image1",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1952,
+        -80
+      ]
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "triggerAtHour": 16
+            }
+          ]
+        }
+      },
+      "id": "e5af41cf-1410-4b54-a3ca-0a23f06cd794",
+      "name": "ทุกวัน 16:00",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -304,
+        0
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "รันเอง": {
+      "main": [
+        [
+          {
+            "node": "Config",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Config": {
+      "main": [
+        [
+          {
+            "node": "อ่านตารางผลิต",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "อ่านตารางผลิต": {
+      "main": [
+        [
+          {
+            "node": "อ่าน Loss",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build HTML": {
+      "main": [
+        [
+          {
+            "node": "Render image (self-host)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Render image (self-host)": {
+      "main": [
+        [
+          {
+            "node": "Download image",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Download image": {
+      "main": [
+        [
+          {
+            "node": "Upload a file",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Upload a file": {
+      "main": [
+        [
+          {
+            "node": "Create shared link",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "อ่าน Loss": {
+      "main": [
+        [
+          {
+            "node": "อ่าน map",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "อ่าน map": {
+      "main": [
+        [
+          {
+            "node": "อ่าน Planning",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "อ่าน Planning": {
+      "main": [
+        [
+          {
+            "node": "Build HTML",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send LINE image": {
+      "main": [
+        [
+          {
+            "node": "เตรียมเขียน รายการ",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "เตรียมเขียน รายการ": {
+      "main": [
+        [
+          {
+            "node": "อัปเดต รายการ T1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "อัปเดต รายการ T1": {
+      "main": [
+        [
+          {
+            "node": "เตรียมเขียน Planning",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "เตรียมเขียน Planning": {
+      "main": [
+        [
+          {
+            "node": "อัปเดต Planning",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "สรุปกะ (ข้อความ)": {
+      "main": [
+        [
+          {
+            "node": "Send LINE image",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "แปลงลิงก์รูป": {
+      "main": [
+        [
+          {
+            "node": "สรุปกะ (ข้อความ)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create shared link": {
+      "main": [
+        [
+          {
+            "node": "แปลงลิงก์รูป",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Error Trigger": {
+      "main": [
+        [
+          {
+            "node": "err-line",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "err-ntfy",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "err-line": {
+      "main": [
+        []
+      ]
+    },
+    "ทุกวัน 16:00": {
+      "main": [
+        [
+          {
+            "node": "Config",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": true,
+    "timeSavedMode": "fixed",
+    "callerPolicy": "workflowsFromSameOwner"
+  },
+  "versionId": "ae27d064-e15f-46ec-9981-1c3f5dbb119c",
+  "meta": {
+    "instanceId": "8b89bacf03b33df343a7dd9f17cf1721598896265238cfb8ad22fd7cae20c33a"
+  },
+  "id": "I9GKnQH4oZwad3X9",
+  "tags": []
+}

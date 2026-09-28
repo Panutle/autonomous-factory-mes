@@ -1,0 +1,1274 @@
+{
+  "name": "tpi-ai-planing-repair",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "triggerAtHour": 6
+            }
+          ]
+        }
+      },
+      "id": "fa5fc501-8304-4874-98d0-c2bbf269f14a",
+      "name": "ทุกวัน 06:00 (Schedule)",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -3584,
+        288
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "a8398b12-97e9-4fa0-adb4-47ba97247be6",
+      "name": "รันเอง (Manual)",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        -3584,
+        448
+      ]
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "126RnDrw2vDYFn8XTxuhvq14eAxwnAcRhbFRXEDejSQU",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 1989503455,
+          "mode": "list",
+          "cachedResultName": "2026",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/126RnDrw2vDYFn8XTxuhvq14eAxwnAcRhbFRXEDejSQU/edit#gid=1989503455"
+        },
+        "options": {
+          "dataLocationOnSheet": {
+            "values": {
+              "rangeDefinition": "specifyRange",
+              "headerRow": 2,
+              "firstDataRow": 3
+            }
+          }
+        }
+      },
+      "id": "39627e2e-bd57-4098-9954-5ae945654678",
+      "name": "อ่าน Loss report",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        -3344,
+        368
+      ],
+      "executeOnce": true,
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "a4Xw1y7SaDpe3N5m",
+          "name": "dts-n8n"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "18owLhg94QmYCXfQ_jOlCuoPkSV4a1APprAjYJN4Wj8w",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 1559920379,
+          "mode": "list",
+          "cachedResultName": "TPI | Production Planning| 2026"
+        },
+        "options": {}
+      },
+      "id": "9837d8d7-c099-4d97-8105-e621f50aac6d",
+      "name": "อ่าน Planning",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        -2000,
+        368
+      ],
+      "executeOnce": true,
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "a4Xw1y7SaDpe3N5m",
+          "name": "dts-n8n"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "18owLhg94QmYCXfQ_jOlCuoPkSV4a1APprAjYJN4Wj8w",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 1421446568,
+          "mode": "list",
+          "cachedResultName": "รายการสั่งผลิตสินค้า T1"
+        },
+        "options": {}
+      },
+      "id": "8f0a0818-1e60-4131-810d-e6097538dd00",
+      "name": "อ่านรายการ T1",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        -2896,
+        368
+      ],
+      "executeOnce": true,
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "a4Xw1y7SaDpe3N5m",
+          "name": "dts-n8n"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "18owLhg94QmYCXfQ_jOlCuoPkSV4a1APprAjYJN4Wj8w",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 988247931,
+          "mode": "list",
+          "cachedResultName": "map_loss_product",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/18owLhg94QmYCXfQ_jOlCuoPkSV4a1APprAjYJN4Wj8w/edit#gid=988247931"
+        },
+        "options": {}
+      },
+      "id": "65383157-983e-4d4d-9582-d90bcf08e086",
+      "name": "อ่าน map",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        -2672,
+        368
+      ],
+      "executeOnce": true,
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "a4Xw1y7SaDpe3N5m",
+          "name": "dts-n8n"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "1yGrh2y7DgvynuRaJdt98XmgVqy7S70ijFn88Tw-SyfA",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 1497783837,
+          "mode": "list",
+          "cachedResultName": "Product Data"
+        },
+        "options": {}
+      },
+      "id": "5a264df7-a716-400b-880f-b6860cef6dea",
+      "name": "อ่าน Product Data",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        -2448,
+        368
+      ],
+      "executeOnce": true,
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "a4Xw1y7SaDpe3N5m",
+          "name": "dts-n8n"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "1xIXbEa8QwRpKd34z1EBmj79wH1wXESmoduSql6_JLj4",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "MachineStats"
+        },
+        "options": {}
+      },
+      "id": "f149e588-45a8-45f2-80e6-5a35c87d63a9",
+      "name": "อ่าน MachineStats",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        -2224,
+        368
+      ],
+      "executeOnce": true,
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "a4Xw1y7SaDpe3N5m",
+          "name": "dts-n8n"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// ============================================================\n// WF2-3 · Code · \"คำนวณคงเหลือจากยอดผลิตจริง (re-plan)\"\n// อ่าน 4 โหนด Google Sheets แยก (executeOnce): $('อ่าน Planning') $('อ่านรายการ T1') $('อ่าน map') $('อ่าน Loss report')\n//\n// รวมยอดของดี \"สะสมตั้งแต่วันเริ่มแผนแรกสุด\" ต่อ (core,เครื่อง) -> คงเหลือ = ยอดตั้งต้น - ผลิตแล้ว\n// ส่งออกให้ flow วางแผน (คงเหลือ = จำนวนที่ต้องผลิตเพิ่ม (ใบ) เพื่อจัดเวลา) + พก _ยอดตั้งต้น/_ผลิตแล้ว/_วันเริ่มแผน\n// ============================================================\n\nconst pad = n => String(n).padStart(2, '0');\nconst num = v => { const s = String(v ?? '').replace(/[,\\s]/g, ''); if (s === '' || s === '-') return null; const n = parseFloat(s); return isNaN(n) ? null : n; };\nconst core = s => String(s ?? '').split('|')[0].trim();\nconst normMachine = m => { m = String(m ?? '').trim().toUpperCase(); if (m === 'TE1') return 'TE'; return m; };\nfunction toYMD(v) {\n  if (v === null || v === undefined || v === '') return null;\n  if (v instanceof Date && !isNaN(v)) return `${v.getUTCFullYear()}-${pad(v.getUTCMonth()+1)}-${pad(v.getUTCDate())}`;\n  const s = String(v).trim(); if (!s) return null;\n  if (/^\\d+(\\.\\d+)?$/.test(s)) { const n = parseFloat(s); if (n > 20000 && n < 80000) { const d = new Date(Date.UTC(1899,11,30) + Math.round(n)*86400000); return `${d.getUTCFullYear()}-${pad(d.getUTCMonth()+1)}-${pad(d.getUTCDate())}`; } }\n  let m = s.match(/^(\\d{4})-(\\d{1,2})-(\\d{1,2})/); if (m) { let Y=+m[1]; if(Y>2400)Y-=543; return `${Y}-${pad(+m[2])}-${pad(+m[3])}`; }\n  m = s.match(/^(\\d{1,2})\\/(\\d{1,2})\\/(\\d{2,4})/); if (m) { let Y=+m[3]; if(Y>2400)Y-=543; if(Y<100)Y+=2000; return `${Y}-${pad(+m[2])}-${pad(+m[1])}`; }\n  const d = new Date(s); return isNaN(d) ? null : `${d.getUTCFullYear()}-${pad(d.getUTCMonth()+1)}-${pad(d.getUTCDate())}`;\n}\nconst ymd2dmy = y => { if (!y) return ''; const [Y,M,D] = y.split('-'); return `${D}/${M}/${Y}`; };\nfunction pick(row, subs) { const keys = Object.keys(row); for (const s of [].concat(subs)) { const k = keys.find(k => k.replace(/\\s+/g,' ').includes(s)); if (k) return row[k]; } return undefined; }\nfunction grab(nodeName) { try { return $(nodeName).all().map(i => i.json); } catch (e) { return []; } }\n// อ่านแต่ละชีตจากโหนด Google Sheets แยก (อ้าง gid) — เลี่ยงปัญหา batchGet: ส่ง ranges ซ้ำไม่ได้ + ชื่อชีตมี |\nconst planningRows = grab('อ่าน Planning');\nconst raykarRows   = grab('อ่านรายการ T1');\nconst mapRowsB     = grab('อ่าน map');\n\n// วันนี้ (เวลาไทย)\nconst nowBkk = new Date(Date.now() + 7*3600*1000);\nconst TODAY = `${nowBkk.getUTCFullYear()}-${pad(nowBkk.getUTCMonth()+1)}-${pad(nowBkk.getUTCDate())}`;\n\n// ---- map: ชื่อย่อ(loss) -> ชื่อในแผน(core) ----\nconst MAP = {};\nfor (const r of mapRowsB) {\n  const from = String(pick(r, ['ชื่อในรายงาน']) ?? '').trim();\n  const to = String(pick(r, ['ชื่อในแผน']) ?? '').trim();\n  if (from && to && to !== '—') MAP[from] = to;\n}\nconst mapCore = p => MAP[String(p ?? '').trim()] || null;\n\n// ---- Planning เดิม: aggregate ต่อ (core, เครื่อง) ----\nconst agg = {};\nfor (const r of planningRows) {\n  const full = String(pick(r, ['ชื่อสินค้า']) ?? '').trim();\n  const machine = String(pick(r, ['เครื่องจักร']) ?? '').trim();\n  const qty = num(pick(r, ['จำนวนที่ต้องผลิตเพิ่ม'])) || 0;\n  if (!full || !machine || qty <= 0) continue;\n  const c = core(full), key = c + '¦' + machine;\n  const startY = toYMD(pick(r, ['วันที่ผลิต']));\n  if (!agg[key]) agg[key] = { core: c, full, machine, code: String(pick(r,['รหัสสินค้า']) ?? '').trim(), qty: 0, delivery: '', origStart: null };\n  const a = agg[key];\n  a.qty += qty;\n  const del = String(pick(r, ['วัน Delivery']) ?? '').trim();\n  if (del && (!a.delivery)) a.delivery = del;\n  if (startY && (!a.origStart || startY < a.origStart)) a.origStart = startY;\n  if (!a.code) a.code = String(pick(r,['รหัสสินค้า']) ?? '').trim();\n}\n\n// ---- รายการ T1: earliest 'วันที่เริ่มผลิตสินค้า' ต่อ (core, เครื่อง) = fallback วันเริ่มแผน ----\nconst raykarStart = {};\nfor (const r of raykarRows) {\n  const machine = String(pick(r, ['เครื่องจักร']) ?? '').trim();\n  const startY = toYMD(pick(r, ['วันที่เริ่มผลิตสินค้า']));\n  if (!machine || !startY) continue;\n  for (const slot of ['ชื่อสินค้า แม่พิมพ์ตัวที่ 1','ชื่อสินค้า แม่พิมพ์ตัวที่ 2','ชื่อสินค้า แม่พิมพ์ตัวที่ 3','ชื่อสินค้า แม่พิมพ์ตัวที่ 4']) {\n    const nm = core(pick(r, [slot]));\n    if (!nm) continue;\n    const key = nm + '¦' + machine;\n    if (!raykarStart[key] || startY < raykarStart[key]) raykarStart[key] = startY;\n  }\n}\n\n// ---- Loss: index ของดี ต่อ (เครื่องnorm, core, วันที่) ----\nconst loss = grab('อ่าน Loss report');\nconsole.log(`[re-plan/debug] Planning=${planningRows.length} รายการ=${raykarRows.length} map=${Object.keys(MAP).length} loss=${loss.length} | agg(core,เครื่อง)=${Object.keys(agg).length}`);\nif (planningRows.length === 0) {\n  throw new Error(`[re-plan] อ่านชีต Planning ไม่ได้ (0 แถว) — เช็คโหนด \"อ่าน Planning\" ว่าอ่านแท็บ 'TPI | Production Planning| 2026' (gid 1559920379) แล้วมีข้อมูล`);\n}\nif (Object.keys(agg).length === 0) {\n  throw new Error(`[re-plan] Planning ${planningRows.length} แถว แต่รวม (core,เครื่อง) ได้ 0 — เช็คคอลัมน์ 'ชื่อสินค้า'/'เครื่องจักร'/'จำนวนที่ต้องผลิตเพิ่ม (ใบ)' ในชีต Planning (หัวตารางแถว 1) · ตัวอย่างคีย์แถวแรก: ${JSON.stringify(Object.keys(planningRows[0]||{}))}`);\n}\nfunction producedFor(machine, coreName, fromYMD) {\n  let s = 0;\n  for (const L of loss) {\n    const g = num(pick(L, ['ของดี'])); if (g === null) continue;\n    if (normMachine(pick(L, ['เครื่อง'])) !== machine) continue;\n    if (mapCore(pick(L, ['ชื่อสินค้า'])) !== coreName) continue;\n    const dy = toYMD(pick(L, ['วันที่'])); if (!dy) continue;\n    if (fromYMD && dy < fromYMD) continue;\n    if (dy > TODAY) continue;\n    s += g;\n  }\n  return s;\n}\n\n// ---- คำนวณคงเหลือ ----\nconst out = [];\nlet skipDone = 0;\nfor (const key in agg) {\n  const a = agg[key];\n  // 'วันเริ่มแผน' (นับผลิตแล้วสะสมตั้งแต่วันนี้): วันที่ผลิต(Planning, คงไว้ข้ามรอบ) > วันเริ่มในรายการเดิม > วันนี้\n  // ไม่ย้อนไปวันที่ผลิตจริงแรกสุด เพราะ backlog เป็นยอด ณ เวลาตั้งแผน การนับก่อนตั้งแผนจะหักซ้ำ\n  const origStart = a.origStart || raykarStart[key] || TODAY;\n  const produced = producedFor(a.machine, a.core, origStart);\n  const remaining = Math.round(a.qty - produced);\n  if (remaining <= 0) { skipDone++; continue; }   // ผลิตครบแล้ว -> เอาออกจากแผน\n  out.push({ json: {\n    'ชื่อสินค้า': a.full,\n    'รหัสสินค้า': a.code,\n    'จำนวนที่ต้องผลิตเพิ่ม (ใบ)': remaining,   // ใช้คงเหลือ จัดเวลา/เครื่องใหม่\n    'วัน Delivery': a.delivery,\n    'วันที่ผลิต': '',                          // ให้ scheduler เริ่มจากวันนี้\n    'เครื่องจักร': '',                          // ให้ v2.0 เลือกเครื่องใหม่\n    '_ยอดตั้งต้น': a.qty,                       // คงไว้เขียนกลับ Planning\n    '_ผลิตแล้ว': produced,\n    '_วันเริ่มแผน': ymd2dmy(origStart),         // preserve วันเริ่มแผนเดิม\n  } });\n}\nconsole.log(`[re-plan] วันนี้=${TODAY} | (core,เครื่อง) ในแผน ${Object.keys(agg).length} | ยังต้องผลิต ${out.length} | ผลิตครบแล้ว ${skipDone}`);\nreturn out;\n"
+      },
+      "id": "40776fe1-330b-49dc-9497-26c9257b1547",
+      "name": "คำนวณคงเหลือ (re-plan)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -2224,
+        592
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "bb7b519d-21b1-44d4-ab6a-ca46a8914498",
+              "leftValue": "={{ $json['เครื่องจักร'] }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "empty",
+                "singleValue": true
+              }
+            },
+            {
+              "id": "0f3dc5f3-e87c-4664-9250-f01e2d81542a",
+              "leftValue": "={{ $json['ชื่อสินค้า'] }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            },
+            {
+              "id": "d5d3b871-65f7-4861-8520-623ff0c68997",
+              "leftValue": "={{ $json['รหัสสินค้า'] }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            },
+            {
+              "id": "ba9c8f93-80f9-4c58-ad17-b549450f634d",
+              "leftValue": "={{ $json['จำนวนที่ต้องผลิตเพิ่ม (ใบ)'] }}",
+              "rightValue": 0,
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              }
+            },
+            {
+              "id": "5339b900-2f6c-47a6-8659-090ae3033793",
+              "leftValue": "={{ $json['วัน Delivery'] }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "41954fad-3e72-4223-ac0a-6c1058bb28a8",
+      "name": "ข้อมูลครบ & ยังไม่กำหนดเครื่อง?",
+      "type": "n8n-nodes-base.filter",
+      "typeVersion": 2.2,
+      "position": [
+        -2000,
+        592
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// ============================================================\n// WF2-3 · Code · \"กำหนดเครื่องจักร + คำนวณเวลาผลิต\" (v2.0)\n// Standalone — ความรู้ฝังในไฟล์ ไม่ต้องอ่าน spreadsheet DATA\n// v2.0: สร้างตารางจากข้อมูลจริงครบทุกเครื่อง (PF8/3,5,7,8, TE,\n//       ASB250/3) — %ของดีครบ → จัดอันดับข้ามเครื่องทำงานจริง\n//       (ไม่รวมเครื่องสวมฟิล์ม NO.1/5/6 และหลอดพรีฟอร์ม KM175)\n// Input : items ที่มี \"ชื่อสินค้า\" + \"จำนวนที่ต้องผลิตเพิ่ม (ใบ)\"\n// Output: format เดียวกับ prompt/skill — พร้อมเขียนลง sheet T1\n// ============================================================\n\nconst CONFIG = {\n  ROUND_HOURS_DP: 2,          // ทศนิยมเวลาผลิต\n  WEIGHT_FACTOR: 2,           // น้ำหนักต่าง 1 g = 2 คะแนนระยะห่าง\n  VOLUME_FACTOR: 0.01,        // ขนาดต่าง 100 ml = 1 คะแนนระยะห่าง\n  LOW_CONFIDENCE_DISTANCE: 8, // เกินนี้ = ประมาณการความเชื่อมั่นต่ำ\n};\n\n// ---- ตารางอ้างอิง (สกัดจาก DATA ทุกเครื่อง ม.ค.–ก.ค. 2026) ----\n// vol=ขนาด(ml), wt=น้ำหนัก spec(g); เรียง PF8/3 → PF8/5 → PF8/7 → PF8/8 → TE → ASB → แผนล่าสุด\nconst KPI_TABLE = [\n  // ---- PF8/3 (ใบต่อรอบ 8) ----\n  { name: 'ขวดอนันดา 350',   code: 'AN-350-CC', vol: 350, wt: 18.5, machine: 'PF8/3', ct: 18.39, cap: 1566.07, good: 99.20, source: 'ประวัติผลิตจริง' },\n  { name: 'ขวดอนันดา 320',   code: 'AN-320-CC', vol: 320, wt: 18.5, machine: 'PF8/3', ct: 18.39, cap: 1566.07, good: 99.29, source: 'ประวัติผลิตจริง' },\n  { name: 'ขวดเซ็นทรัล 350', code: 'CTR-350-CC', vol: 350, wt: 18.5, machine: 'PF8/3', ct: 18.39, cap: 1566.07, good: 98.68, source: 'ประวัติผลิตจริง' },\n  { name: 'ขวดเซ็นทรัล 330 V2', code: 'CTR-330-CC-V2', vol: 330, wt: 18.5, machine: 'PF8/3', ct: 18.39, cap: 1566.07, good: 99.29, source: 'ประวัติผลิตจริง' },\n  { name: 'ขวดปาปาแพค 200 KR', code: 'KR-200-CC', vol: 200, wt: 18.5, machine: 'PF8/3', ct: 18.39, cap: 1566.07, good: 98.92, source: 'ประวัติผลิตจริง' },\n  { name: 'ขวดปาปาแพค 250 KR', code: 'KR-250-CC', vol: 250, wt: 18.5, machine: 'PF8/3', ct: 18.39, cap: 1566.07, good: 98.92, source: 'ประวัติผลิตจริง' },\n  { name: 'ขวด Vince 500',   code: 'VN-500-CC', vol: 500, wt: 18.5, machine: 'PF8/3', ct: 18.39, cap: 1566.07, good: 99.29, source: 'ประวัติผลิตจริง' },\n  { name: 'ขวดมายช้อยส์ 500', code: 'MC-500-CC', vol: 500, wt: 18.5, machine: 'PF8/3', ct: 18.40, cap: 1565.22, good: 99.33, source: 'ประวัติผลิตจริง' },\n\n  // ---- PF8/5 (ใบต่อรอบ 8) ----\n  { name: 'ขวดโฮมเฟรชมาร์ท 1500 (OX Series)', code: 'OX-1500-CC', vol: 1500, wt: 37, machine: 'PF8/5', ct: 28.80, cap: 1000.00, good: 98.79, source: 'ประวัติผลิตจริง' },\n  { name: 'ขวดเลอคูล 1500 (LC Series)',       code: 'LC-1500-CC', vol: 1500, wt: 37, machine: 'PF8/5', ct: 28.80, cap: 1000.00, good: 98.79, source: 'ประวัติผลิตจริง' },\n  { name: 'ขวดเบลมองด์ 500', code: 'BM-500-CC', vol: 500,  wt: 37, machine: 'PF8/5', ct: 29.00, cap: 993.10,  good: 97.53, source: 'ประวัติผลิตจริง' },\n  { name: 'ขวด 1000 กรีนเมท', code: 'TS-1000-CC', vol: 1000, wt: 43, machine: 'PF8/5', ct: 27.00, cap: 1066.67, good: 96.58, source: 'ประวัติผลิตจริง' },\n  { name: 'ขวดเบลมองด์ 1000', code: 'BM-1000-CC', vol: 1000, wt: 37, machine: 'PF8/5', ct: 28.00, cap: 1028.57, good: 94.67, source: 'ประวัติผลิตจริง' },\n\n  // ---- PF8/7 (ใบต่อรอบ 8) ----\n  { name: 'ขวดนูบูน 500', code: 'NB-500-CC', vol: 500, wt: 21, machine: 'PF8/7', ct: 16.13, cap: 1785.49, good: 96.43, source: 'ประวัติผลิตจริง' },\n  { name: 'ขวดไอดีล 500', code: 'ID-500-CC-V2', vol: 500, wt: 21, machine: 'PF8/7', ct: 15.92, cap: 1809.05, good: 95.22, source: 'ประวัติผลิตจริง' },\n\n  // ---- PF8/8 (ใบต่อรอบ 8) — ชนะข้ามเครื่องหลายรายการ ----\n  { name: 'ขวดเคลลี่ 450', code: 'TS-450-CC', vol: 450, wt: 20, machine: 'PF8/8', ct: 13.96, cap: 2063.04, good: 99.54, source: 'ประวัติผลิตจริง' },\n  { name: 'ขวด 400 BSC',   code: 'TS-400-CC-V2', vol: 400, wt: 20, machine: 'PF8/8', ct: 13.79, cap: 2088.47, good: 99.91, source: 'ประวัติผลิตจริง' },\n  { name: 'ขวด 400 กรีนเมท', code: 'TS-400-CC-V1', vol: 400, wt: 20, machine: 'PF8/8', ct: 13.80, cap: 2086.96, good: 99.03, source: 'ประวัติผลิตจริง' },\n  { name: 'ขวดไคโอ 350',   code: 'ID-350-CC-V2', vol: 350, wt: 21, machine: 'PF8/8', ct: 14.05, cap: 2049.82, good: 99.73, source: 'ประวัติผลิตจริง' },\n  { name: 'ขวดไอดีล 250',  code: 'ID-250-CC', vol: 250, wt: 21, machine: 'PF8/8', ct: 13.94, cap: 2065.99, good: 99.01, source: 'ประวัติผลิตจริง' },\n  { name: 'ขวดปาปาแพค 220 KR', code: 'KR-220-CC', vol: 220, wt: 21, machine: 'PF8/8', ct: 13.94, cap: 2065.99, good: 99.01, source: 'ประวัติผลิตจริง' },\n  { name: 'ขวดออนเดอะเทเบิ้ล 330 (OB Series) V1', code: 'OB-330-CC-V1', vol: 330, wt: 21, machine: 'PF8/8', ct: 14.02, cap: 2054.21, good: 98.29, source: 'ประวัติผลิตจริง' },\n\n  // ---- TE (ใบต่อรอบ = จำนวน Cavity 1 หรือ 2) ----\n  { name: 'ขวดซากุระ 700', code: 'SK-700-CC', vol: 700, wt: 22.7, machine: 'TE', ct: 4.89, cap: 1472.39, good: 99.91, source: 'ประวัติผลิตจริง' },\n  { name: 'ขวดฉั่วฮะเส็ง 380', code: 'CH-380-CC', vol: 380, wt: 22, machine: 'TE', ct: 3.91, cap: 1841.43, good: 100.00, source: 'ประวัติผลิตจริง' },\n  { name: 'ขวดปาปาแพค 150 KR', code: 'KR-150-CC', vol: 150, wt: 19, machine: 'TE', ct: 4.45, cap: 1617.98, good: 99.01, source: 'ประวัติผลิตจริง' },\n  { name: 'ขวดทานตะวัน 730', code: 'TW-730-CC', vol: 730, wt: 36, machine: 'TE', ct: 4.42, cap: 1628.96, good: 99.74, source: 'ประวัติผลิตจริง' },\n  { name: 'ขวดกรุงสยาม 450 V2', code: 'KS-450-CC-V2', vol: 450, wt: 17, machine: 'TE', ct: 4.26, cap: 1690.14, good: 98.88, source: 'ประวัติผลิตจริง' },\n  { name: 'ขวดวาลาไทย 320', code: null, vol: 320, wt: 17, machine: 'TE', ct: 4.26, cap: 1690.14, good: 98.88, source: 'ประวัติผลิตจริง' },\n  { name: 'ขวดอินโนเฟรช 455', code: 'IN-455-CC', vol: 465, wt: 36, machine: 'TE', ct: 5.23, cap: 1376.67, good: 96.59, source: 'ประวัติผลิตจริง' },\n\n  // ---- ASB250/3 (ใบต่อรอบ 4) ----\n  { name: 'ขวด CPC 1 ลิตร', code: 'CO-1000-CC-V1', vol: 1000, wt: 35, machine: 'ASB250/3', ct: 23.17, cap: 621.49, good: 96.57, source: 'ประวัติผลิตจริง' },\n  { name: 'ขวดมะพร้าว 1000', code: 'JM-1000-CC', vol: 1000, wt: 35, machine: 'ASB250/3', ct: 22.37, cap: 643.72, good: 90.20, source: 'ประวัติผลิตจริง' },\n  { name: 'ขวดเหล่าธงสิงห์ 1000', code: null, vol: 1000, wt: 35, machine: 'ASB250/3', ct: 27.65, cap: 520.80, good: 82.39, source: 'ประวัติผลิตจริง' },\n\n  // ---- แผนล่าสุด (ยังไม่มีประวัติ DATA — ไม่มี %ของดี) ----\n  { name: 'ขวดไอดีล 350', code: 'ID-350-CC-V1', vol: 350, wt: 21, machine: 'PF8/5', ct: 27.00, cap: 1066.67, good: null, source: 'แผนล่าสุด' },\n  { name: 'บจก.กรุงสยามเครื่องดื่ม (450 เปล่า)', code: 'KS-450-CC', vol: 450, wt: 21, machine: 'PF8/7', ct: 17.52, cap: 1643.84, good: null, source: 'แผนล่าสุด' },\n];\n\n// ---- กฎพิเศษตามน้ำหนัก (ตรวจก่อนตารางเสมอ) — เครื่องเปลี่ยนตามน้ำหนัก ----\nconst SPECIAL_RULES = [\n  { core: 'ขวด Vince 1000', spec: '37 ±1', machine: 'PF8/5', ct: 28.00, cap: 1028.57, good: 94.67  },\n  { core: 'ขวด Vince 1000', spec: '34 ±1', machine: 'TE',    ct: 4.39,  cap: 820.05,  good: 100.00 },\n  { core: 'ขวดนูบูน 1000',  spec: '42 ±1', machine: 'PF8/5', ct: 28.00, cap: 1028.57, good: 87.82  },\n  { core: 'ขวดนูบูน 1000',  spec: '36 ±1', machine: 'TE',    ct: 4.42,  cap: 1628.96, good: 95.75  },\n];\n\n// ---- helpers ----\nconst norm = s => String(s ?? '').replace(/\\s+/g, ' ').trim().toLowerCase();\nconst num = v => {\n  if (v === null || v === undefined || v === '') return null;\n  const n = parseFloat(String(v).replace(/[,\\s]/g, ''));\n  return isNaN(n) ? null : n;\n};\nconst round2 = v => Math.round(v * Math.pow(10, CONFIG.ROUND_HOURS_DP)) / Math.pow(10, CONFIG.ROUND_HOURS_DP);\n\n// ขนาด (ml) = ตัวเลขมากสุดใน core name; รองรับ \"ลิตร\" (เลข ≤10 → ×1000)\nconst volumeOf = coreName => {\n  const s = String(coreName);\n  const nums = (s.match(/\\d+(?:\\.\\d+)?/g) || []).map(Number);\n  if (!nums.length) return null;\n  let v = Math.max(...nums);\n  if (/ลิตร|liter|litre/i.test(s) && v <= 10) v *= 1000;\n  return v;\n};\n// น้ำหนัก (g) = ตัวเลขแรกของ spec ส่วนที่ 3 เช่น \"22.7 ±1\" -> 22.7\nconst weightOf = spec => {\n  const m = String(spec ?? '').match(/\\d+(?:\\.\\d+)?/);\n  return m ? parseFloat(m[0]) : null;\n};\n\nfunction findEntry(coreName, code) {\n  const nCore = norm(coreName);\n  const nCode = norm(code);\n  if (nCode) {\n    const byCode = KPI_TABLE.find(e => e.code && norm(e.code) === nCode);\n    if (byCode) return { entry: byCode, exact: true };\n  }\n  let hit = KPI_TABLE.find(e => norm(e.name) === nCore);\n  if (hit) return { entry: hit, exact: true };\n  if (nCore) {\n    hit = KPI_TABLE.find(e => nCore.includes(norm(e.name)) || norm(e.name).includes(nCore));\n    if (hit) return { entry: hit, exact: false };\n  }\n  return null;\n}\n\n// สินค้าใหม่: หาสินค้าใกล้เคียงที่สุดด้วยน้ำหนัก + ขนาด (ต้องมีน้ำหนัก spec)\nfunction estimateFromNearest(weight, volume) {\n  if (weight === null) return null;\n  let best = null;\n  for (const e of KPI_TABLE) {\n    let d = Math.abs(e.wt - weight) * CONFIG.WEIGHT_FACTOR;\n    if (volume !== null && e.vol !== null) d += Math.abs(e.vol - volume) * CONFIG.VOLUME_FACTOR;\n    const better =\n      !best ||\n      d < best.d ||\n      (d === best.d && e.good !== null && best.entry.good === null); // เสมอ: เลือกตัวที่มี %ของดี\n    if (better) best = { entry: e, d };\n  }\n  return best;\n}\n\nfunction planOne(r) {\n  const fullName = String(r['ชื่อสินค้า'] ?? '').trim();\n  const parts = fullName.split('|').map(p => p.trim());\n  const coreName = parts[0] || '';\n  const weightSpec = parts[2] || '';\n  const code = r['รหัสสินค้า'] ?? null;\n  const qty = num(r['จำนวนที่ต้องผลิตเพิ่ม (ใบ)']);\n\n  let machine = null, ct = null, cap = null, good = null, entryCode = null;\n  let source = 'ไม่พบข้อมูล';\n  let note = '';\n\n  const rule = SPECIAL_RULES.find(x => norm(coreName).includes(norm(x.core)) && weightSpec === x.spec);\n  const found = rule ? null : findEntry(coreName, code);\n\n  if (rule) {\n    // 1) กฎพิเศษตามน้ำหนัก\n    machine = rule.machine; ct = rule.ct; cap = rule.cap; good = rule.good;\n    source = 'กฎพิเศษ'; entryCode = rule.code ?? null;\n  } else if (found) {\n    // 2) เจอในตารางอ้างอิง\n    const e = found.entry;\n    machine = e.machine; ct = e.ct; cap = e.cap; good = e.good; source = e.source; entryCode = e.code ?? null;\n    if (!found.exact) note = `จับคู่จากชื่อใกล้เคียง: ${e.name}`;\n  } else {\n    // 3) สินค้าใหม่ -> ประมาณการจากสินค้าใกล้เคียง\n    const est = estimateFromNearest(weightOf(weightSpec), volumeOf(coreName));\n    if (est) {\n      const e = est.entry;\n      machine = e.machine; ct = e.ct; cap = e.cap;\n      source = 'ประมาณการ';\n      const lowConf = est.d > CONFIG.LOW_CONFIDENCE_DISTANCE ? ' ความเชื่อมั่นต่ำ —' : '';\n      note = `สินค้าใหม่${lowConf} อ้างอิง ${e.name} (${e.wt} g / ${e.vol} ml, ระยะห่าง ${Math.round(est.d * 10) / 10}) ตรวจสอบก่อนใช้จริง`;\n    } else {\n      note = 'สินค้าใหม่ ไม่ระบุ spec น้ำหนัก (เช่น \"19 ±1\") จึงประมาณการไม่ได้ กรุณาระบุน้ำหนักหรือเพิ่มข้อมูลใน reference';\n    }\n  }\n\n  // 4) เวลาผลิต = จำนวน ÷ กำลังผลิต\n  let hours = null;\n  if (qty === null || qty <= 0) {\n    note = note || 'จำนวนที่ต้องผลิตไม่ถูกต้อง คำนวณเวลาไม่ได้';\n  } else if (cap) {\n    hours = round2(qty / cap);\n  }\n\n  return {\n    ...r,\n    'ชื่อสินค้า': fullName,\n    'รหัสสินค้า': code || entryCode || null,\n    'จำนวนที่ต้องผลิตเพิ่ม (ใบ)': qty,\n    'เครื่องจักร': machine,\n    'Cycle Time (s)': ct,\n    'กำลังผลิตจริง (ใบ/ชม)': cap,\n    'เวลาผลิต (ชม)': hours,\n    '%ของดีอ้างอิง': good,\n    'แหล่งข้อมูล': source,\n    'หมายเหตุ': note,\n  };\n}\n\n// ---- main (n8n) ----\nconst out = [];\nfor (const item of $input.all()) {\n  const r = { ...item.json };\n  if (!String(r['ชื่อสินค้า'] ?? '').trim()) continue;\n  out.push({ json: planOne(r) });\n}\nreturn out;\n"
+      },
+      "id": "557988d1-db95-40d4-96f4-632facdec87a",
+      "name": "เลือกเครื่องจักร v2.0",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1776,
+        592
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// ============================================================\n// WF2-3 (COMBINED) · Code · \"เลือกเครื่อง (รวม 3 มิติ + banding + กระจาย)\"\n// วางต่อจาก \"เลือกเครื่องจักร v2.0\" → override เครื่อง + ตั้ง CT/กำลัง/เวลา ตามเครื่องที่เลือกจริง\n//\n// คะแนน 3 มิติ (ratio-to-best, ดีสุด=1, ไม่มีข้อมูล=0.5): คุณภาพ + ซ่อม + ไฟ → ถ่วงน้ำหนักตาม WEIGHT\n//   คุณภาพวัดด้วย **%ของเสีย** (ไม่ใช่ %ของดี — ของดี 95-99% บีบความต่างจนแทบไม่มีน้ำหนัก)\n//   band = คะแนน ≥ สูงสุด×0.85 (±15%) → กระจายงานในกลุ่ม (โหลดน้อยสุด → คะแนนสูงกว่า)\n//   candidate = เครื่องที่สินค้ามีประวัติผลิต (จากตาราง QUALITY ที่ฝัง = DATA)\n//   ⚠️ ถ้า v2.0 ใช้ \"กฎพิเศษ\" (เครื่องบังคับตามน้ำหนัก) → ไม่ override\n//\n// แหล่งข้อมูล:\n//   • คุณภาพ/CT/กำลัง = ตาราง QUALITY ฝังในโค้ด (snapshot จาก DATA — ไม่ auto-refresh)\n//   • ซ่อมเฉลี่ย + ไฟเฉลี่ย = อ่านสดจาก node \"อ่าน MachineStats\" (อัปเดตโดยสายรีเฟรชรายเดือน)\n//     คอลัมน์: เครื่องจักร / ซ่อมเฉลี่ย / ไฟเฉลี่ย\n// ============================================================\n\nconst BAND_PCT = 0.15;\n// น้ำหนักแต่ละมิติในคะแนนรวม (รวมกัน = 1.0) — ปรับได้\nconst WEIGHT = { q: 0.40, r: 0.40, e: 0.20 };   // คุณภาพ 40% · ซ่อม 40% · ไฟ 20%\nconst QUALITY = {\"ขวดอนันดา 350\": {\"PF8/3\": {\"good\": 99.2, \"ct\": 18.39, \"cap\": 1566.1}}, \"ขวดเซ็นทรัล 350\": {\"PF8/3\": {\"good\": 98.68, \"ct\": 18.39, \"cap\": 1566.1}}, \"ขวด Vince 500\": {\"PF8/3\": {\"good\": 99.33, \"ct\": 18.4, \"cap\": 1565.2}, \"PF8/5\": {\"good\": 93.84, \"ct\": 27, \"cap\": 1066.7}}, \"ขวดปาปาแพค 200 KR\": {\"PF8/3\": {\"good\": 98.92, \"ct\": 18.39, \"cap\": 1566.1}, \"TE\": {\"good\": 95.99, \"ct\": 4.43, \"cap\": 1623.4}}, \"ขวดอนันดา 320\": {\"PF8/3\": {\"good\": 99.29, \"ct\": 18.39, \"cap\": 1566.1}}, \"ขวดโฮมเฟรชมาร์ท 1500 (OX Series)\": {\"PF8/5\": {\"good\": 98.79, \"ct\": 28.8, \"cap\": 1000}}, \"ขวดเบลมองด์ 500\": {\"PF8/5\": {\"good\": 97.53, \"ct\": 29, \"cap\": 993.1}}, \"ขวด 1000 กรีนเมท\": {\"PF8/5\": {\"good\": 96.58, \"ct\": 27, \"cap\": 1066.7}}, \"ขวดนูบูน 1000\": {\"PF8/5\": {\"good\": 87.82, \"ct\": 28, \"cap\": 1028.6}, \"TE\": {\"good\": 95.75, \"ct\": 4.42, \"cap\": 1629.0}}, \"ขวด Vince 1000\": {\"PF8/5\": {\"good\": 94.67, \"ct\": 28, \"cap\": 1028.6}, \"TE\": {\"good\": 100, \"ct\": 4.39, \"cap\": 820.0}}, \"ขวด 400 กรีนเมท\": {\"PF8/7\": {\"good\": 98.51, \"ct\": 16.8, \"cap\": 1714.3}, \"PF8/8\": {\"good\": 99.03, \"ct\": 13.8, \"cap\": 2087.0}}, \"ขวด 400 BSC\": {\"PF8/7\": {\"good\": 98.38, \"ct\": 16.23, \"cap\": 1774.5}, \"PF8/8\": {\"good\": 99.91, \"ct\": 13.79, \"cap\": 2088.5}}, \"ขวดนูบูน 500\": {\"PF8/7\": {\"good\": 96.43, \"ct\": 16.13, \"cap\": 1785.9}}, \"ขวดไคโอ 350\": {\"PF8/7\": {\"good\": 96.75, \"ct\": 15.96, \"cap\": 1804.2}, \"PF8/8\": {\"good\": 98.8, \"ct\": 14.0, \"cap\": 2057.6}}, \"ขวดไอดีล 500\": {\"PF8/7\": {\"good\": 95.22, \"ct\": 15.91, \"cap\": 1809.6}}, \"ขวดเคลลี่ 450\": {\"PF8/7\": {\"good\": 96.67, \"ct\": 16.05, \"cap\": 1794.2}, \"PF8/8\": {\"good\": 99.54, \"ct\": 13.96, \"cap\": 2063.2}}, \"ขวดปาปาแพค 220 KR\": {\"PF8/8\": {\"good\": 99.01, \"ct\": 13.94, \"cap\": 2066.0}}, \"ขวดออนเดอะเทเบิ้ล 330 (OB Series) V1\": {\"PF8/8\": {\"good\": 98.29, \"ct\": 14.02, \"cap\": 2054.2}}, \"ขวด CPC 1 ลิตร\": {\"ASB250/3\": {\"good\": 96.57, \"ct\": 23.17, \"cap\": 621.5}}, \"ขวดมะพร้าว 1000\": {\"ASB250/3\": {\"good\": 90.2, \"ct\": 22.36, \"cap\": 643.9}}, \"ขวดเหล่าธงสิงห์ 1000\": {\"ASB250/3\": {\"good\": 82.39, \"ct\": 27.65, \"cap\": 1041.6}}, \"ขวดฉั่วฮะเส็ง 380\": {\"TE\": {\"good\": 100, \"ct\": 3.91, \"cap\": 1841.4}}, \"ขวดซากุระ 700\": {\"TE\": {\"good\": 99.91, \"ct\": 4.89, \"cap\": 1472.4}}, \"ขวดปาปาแพค 150 KR\": {\"TE\": {\"good\": 99.01, \"ct\": 4.45, \"cap\": 1618.0}}, \"ขวดทานตะวัน 730\": {\"TE\": {\"good\": 99.74, \"ct\": 4.42, \"cap\": 1629.0}}, \"ขวดกรุงสยาม 450 V2\": {\"TE\": {\"good\": 98.88, \"ct\": 4.26, \"cap\": 1690.1}}, \"ขวดอินโนเฟรช 465\": {\"TE\": {\"good\": 96.59, \"ct\": 5.23, \"cap\": 1375.6}}};\n\nconst core = s => String(s || '').split('|')[0].trim();\nconst num  = v => Number(String(v ?? '').replace(/,/g, '')) || 0;\nfunction pick(row, prefix) { for (const k of Object.keys(row)) if (k.replace(/\\s+/g, ' ').trim().startsWith(prefix)) return row[k]; return ''; }\nconst fnum = v => { const n = parseFloat(String(v ?? '').replace(/,/g, '')); return isNaN(n) ? null : n; };\n\n// ---- อ่านซ่อม+ไฟ ต่อเครื่อง จาก MachineStats ----\nconst REPAIR = {}, ENERGY = {};\ntry {\n  for (const it of $('อ่าน MachineStats').all()) {\n    const m = String(pick(it.json, 'เครื่องจักร') || '').trim();\n    if (!m) continue;\n    REPAIR[m] = fnum(pick(it.json, 'ซ่อมเฉลี่ย'));\n    ENERGY[m] = fnum(pick(it.json, 'ไฟเฉลี่ย'));\n  }\n} catch (e) { /* ไม่มี node → ซ่อม/ไฟ = null → คะแนนกลาง 0.5 */ }\n\n// [machine_status] เครื่องที่ \"ใช้งานได้\" — กรองเครื่องเสียออกจากการเลือก\nconst _nm = m => { m = String(m || '').trim().toUpperCase(); return m === 'TE1' ? 'TE' : m; };\nconst USABLE = new Set(); let hasStatus = false;   // hasStatus=false → ไม่มีชีต → ไม่กรอง\ntry {\n  for (const it of $('อ่านสถานะเครื่อง').all()) {\n    const s = pick(it.json, 'สถานะ'); if (s == null) continue;\n    const m = _nm(pick(it.json, 'เครื่องจักร')); if (!m) continue;\n    hasStatus = true;\n    if (!/เสีย|พัง|ปิด|หยุด|ซ่อม/.test(String(s))) USABLE.add(m);\n  }\n} catch (e) { /* ไม่มี node สถานะ → ไม่กรอง */ }\nconst _ok = m => !hasStatus || USABLE.has(_nm(m));\n\n// ratio-to-best: ดีสุด=1 ; ตัวอื่น=สัดส่วน ; ไม่มีข้อมูล=0.5\nfunction dimScore(vals, higherBetter) {\n  const nums = vals.filter(v => v != null);\n  if (!nums.length) return vals.map(() => 0.5);\n  const best = higherBetter ? Math.max(...nums) : Math.min(...nums);\n  return vals.map(v => { if (v == null) return 0.5; if (higherBetter) return best ? v / best : 1; return v ? best / v : 1; });\n}\n\nconst jobCount = {};\nconst items = $input.all().map(it => ({ ...it.json }))\n  .sort((a, b) => num(b['จำนวนที่ต้องผลิตเพิ่ม (ใบ)']) - num(a['จำนวนที่ต้องผลิตเพิ่ม (ใบ)']));\nconst out = [];\nfor (const r of items) {\n  const p = core(r['ชื่อสินค้า']);\n  const qmap = QUALITY[p];\n  const prev = r['หมายเหตุ'] ? ' | ' + r['หมายเหตุ'] : '';\n\n  // fix3: v2.0 ใช้ \"กฎพิเศษ\" (เครื่องบังคับตามน้ำหนัก) → ไม่ override แต่ยังนับโหลด\n  if (String(r['แหล่งข้อมูล'] ?? '').trim() === 'กฎพิเศษ') {\n    const m = String(r['เครื่องจักร'] ?? '').trim();\n    if (m) jobCount[m] = (jobCount[m] || 0) + 1;\n    const _w = (m && !_ok(m)) ? ' ⚠ เครื่องเสีย ต้องย้ายมือ' : '';\n    r['หมายเหตุ'] = `[combined] ไม่เลือกใหม่ — กฎพิเศษน้ำหนัก (v2.0) บังคับ ${m}${_w}` + prev;\n    out.push({ json: r });\n    continue;\n  }\n\n  if (qmap && Object.keys(qmap).length) {\n    let cands = Object.keys(qmap).filter(_ok);\n    if (!cands.length) {   // เครื่องที่มีประวัติผลิตสินค้านี้ เสียหมด → คงผล v2.0 + เตือนย้ายมือ\n      const m0 = String(r['เครื่องจักร'] ?? '').trim();\n      r['หมายเหตุ'] = `[combined] ⚠ เครื่องที่ผลิต \"${p}\" ได้ เสียหมด (${Object.keys(qmap).join(',')}) — คงผล v2.0 (${m0})` + prev;\n      out.push({ json: r }); continue;\n    }\n    const qs = dimScore(cands.map(m => 100 - qmap[m].good), false);   // fix1: ใช้ %ของเสีย (น้อย=ดี) — %ของดี บีบความต่างจนแบน\n    const rs = dimScore(cands.map(m => (m in REPAIR ? REPAIR[m] : null)), false);\n    const es = dimScore(cands.map(m => (m in ENERGY ? ENERGY[m] : null)), false);\n    const score = cands.map((m, i) => WEIGHT.q * qs[i] + WEIGHT.r * rs[i] + WEIGHT.e * es[i]);\n    const top = Math.max(...score);\n    const thresh = top * (1 - BAND_PCT);\n    const band = cands.map((m, i) => ({ m, i, s: score[i] })).filter(x => x.s >= thresh);\n    band.sort((a, b) => ((jobCount[a.m] || 0) - (jobCount[b.m] || 0)) || (b.s - a.s));\n    const chosen = band[0].m, info = qmap[chosen];\n    jobCount[chosen] = (jobCount[chosen] || 0) + 1;\n    r['เครื่องจักร'] = chosen;\n    r['Cycle Time (s)'] = info.ct;\n    r['กำลังผลิตจริง (ใบ/ชม)'] = info.cap;\n    r['เวลาผลิต (ชม)'] = info.cap ? Math.round(num(r['จำนวนที่ต้องผลิตเพิ่ม (ใบ)']) / info.cap * 100) / 100 : null;\n    r['%ของดีอ้างอิง'] = info.good;\n    r['แหล่งข้อมูล'] = 'combined(3มิติ+band+โหลด)';\n    r['หมายเหตุ'] = `[combined] เลือก ${chosen} (โหลด ${jobCount[chosen]}) | คะแนน: ` +\n      cands.map((m, i) => `${m}:${score[i].toFixed(3)}${score[i] >= thresh ? '*' : ''}[ดี${qmap[m].good}/ซ่อม${(m in REPAIR ? REPAIR[m] : '-')}/ไฟ${(m in ENERGY ? ENERGY[m] : '-')}]`).join(' ') +\n      ` band≥${thresh.toFixed(3)}` + prev;\n  } else {\n    const _w2 = (() => { const m0 = String(r['เครื่องจักร'] ?? '').trim(); return (m0 && !_ok(m0)) ? ' ⚠ เครื่องเสีย ต้องย้ายมือ' : ''; })();\n    r['หมายเหตุ'] = `[combined] ไม่มีข้อมูลคุณภาพรายเครื่องของ \"${p}\" คงผล v2.0${_w2}` + prev;\n  }\n  out.push({ json: r });\n}\nreturn out;"
+      },
+      "id": "8d6427b4-3bf2-411f-a3d8-8c3776dea05d",
+      "name": "เลือกเครื่อง (รวม 3 มิติ)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1552,
+        592
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "return (function(){\n// ============================================================\n// WF2-3 · \"สร้างใบสั่งผลิต\" (v2) เพิ่ม 2 จุด:\n//  (1) รวมสินค้าซ้ำใน input เป็นรายการเดียว + รวมจำนวน\n//  (2) ไล่คิวเวลาเริ่มผลิตต่อเครื่อง: ถ้าเครื่องมีงานค้าง (ตารางเดิม/แพลนก่อนหน้า)\n//      เริ่มหลังงานก่อนเสร็จ ไม่ให้เวลาชนกัน — ต้องมี node \"อ่านตารางผลิต\"\n// ============================================================\nfunction slotCap(m){ m=String(m||'').trim(); if(m==='TE')return 2; if(m==='KM175'||m==='NO.6'||m==='NO.5'||m==='NO.1')return 1; return 4; }\n\n// ===== ตั้งค่า \"ซอยงานก้อนใหญ่ไปเครื่องว่างเพื่อเติมคนว่าง\" (load-balance) =====\n// เมื่อมีช่วงคนว่าง + มีงานก้อนใหญ่ที่สินค้าหลักเคยผลิตได้บนเครื่องอื่นที่ว่าง → ซอยแบ่งให้สองเครื่องช่วยกัน\n// ⚠️ ต้องมี \"แม่พิมพ์\" ของสินค้านั้นมากกว่า 1 ตัว ถึงจะเดินสองเครื่องพร้อมกันได้จริง\n//    สินค้าที่มีแม่พิมพ์ตัวเดียว ใส่ชื่อ(core)ไว้ใน SPLIT_NOSPLIT เพื่อห้ามซอย\nconst SPLIT_FILL           = true;   // false = ปิดการซอยอัตโนมัติ\nconst SPLIT_MIN_H          = 24;     // ซอยเฉพาะช่วงว่าง/งานที่ยาว ≥ ชม.นี้\nconst SPLIT_MIN_QTY        = 5000;   // ก้อนที่ซอยออกต้อง ≥ จำนวนนี้ (กันเศษเล็ก)\nconst SPLIT_MAX_PER_PRODUCT= 2;      // สินค้าเดียวซอยได้ไม่เกินกี่ครั้ง\nconst SPLIT_MAX_TOTAL      = 8;      // เพดานจำนวนครั้งซอยรวมทั้งแผน (กันแตกใบเยอะ)\nconst SPLIT_NOSPLIT        = [];     // ชื่อสินค้า(core)ที่ห้ามซอย เช่น ['ขวด 400 กรีนเมท'] (แม่พิมพ์ตัวเดียว)\nconst START_HOUR = 8;\nconst pad=(n,w)=>String(n).padStart(w,'0');\nconst fmtD=d=>`${d.getFullYear()}-${pad(d.getMonth()+1,2)}-${pad(d.getDate(),2)}`;\nconst fmtT=d=>`${d.getHours()}:${pad(d.getMinutes(),2)}`;\nconst num=v=>Number(String(v??'').replace(/,/g,''))||0;\nconst mCode=m=>String(m||'').replace(/\\//g,'').replace('ASB','A');\nfunction pick(row,prefix){ for(const k of Object.keys(row)) if(k.replace(/\\s+/g,' ').trim().startsWith(prefix)) return row[k]; return ''; }\nconst clean=v=>{ const s=String(v??'').trim(); return (s===''||s==='-'||s==='None')?null:s; };\nconst fnum=v=>{ const n=parseFloat(String(v??'').replace(/,/g,'')); return isNaN(n)?null:n; };\nconst parts=s=>String(s??'').split('|').map(x=>x.trim());\nconst colorOf=s=>parts(s)[3]||'';\nfunction toYMD(v){\n  const s=String(v??'').trim(); if(!s)return null;\n  const iso=s.match(/^(\\d{4})-(\\d{1,2})-(\\d{1,2})/); if(iso)return `${iso[1]}-${pad(+iso[2],2)}-${pad(+iso[3],2)}`;\n  const dmy=s.match(/^(\\d{1,2})\\/(\\d{1,2})\\/(\\d{2,4})$/); if(dmy){ let y=+dmy[3]; if(y>2400)y-=543; if(y<100)y+=2000; return `${y}-${pad(+dmy[2],2)}-${pad(+dmy[1],2)}`; }\n  const d=new Date(s); return isNaN(d)?null:fmtD(d);\n}\nfunction parseDT(dstr,tstr){\n  const d=toYMD(dstr); if(!d)return null;\n  let hh=START_HOUR,mm=0; const t=String(tstr??'').trim().match(/^(\\d{1,2}):(\\d{1,2})/); if(t){hh=+t[1];mm=+t[2];}\n  const dt=new Date(`${d}T${pad(hh,2)}:${pad(mm,2)}:00`); return isNaN(dt)?null:dt;\n}\nconst atHour=ymd=>new Date(`${ymd}T${pad(START_HOUR,2)}:00:00`);\n\n// Product Data\nconst PD={};\ntry{ for(const it of $('อ่าน Product Data').all()){ const row=it.json; const code=String(pick(row,'Code')||'').trim(); if(!code)continue;\n  const color=String(pick(row,'Product Color')||'').trim();\n  (PD[code]=PD[code]||{})[color]={ resin:clean(pick(row,'Resin Type')), bag:clean(pick(row,'Bag size')), calW:fnum(pick(row,'Cal-Weight')), pack:fnum(pick(row,'Packing')), mbType:clean(pick(row,'Masterbatch Type')), mbRatio:fnum(pick(row,'Masterbatch Mixing Ratio')) };\n} }catch(e){}\nconst matOf=(code,color)=>(PD[code]&&PD[code][color])||null;\n\nconst MACHINE_DEFECT={ 'PF8/8':1.435,'PF8/3':2.029,'TE':2.372,'PF8/7':3.904,'PF8/5':7.223,'ASB250/3':12.144 };\nconst REPAIR={},ENERGY={};\ntry{ for(const it of $('อ่าน MachineStats').all()){ const m=String(pick(it.json,'เครื่องจักร')||'').trim(); if(!m)continue; REPAIR[m]=fnum(pick(it.json,'ซ่อมเฉลี่ย')); ENERGY[m]=fnum(pick(it.json,'ไฟเฉลี่ย')); } }catch(e){}\n\n// (2a) เวลาว่างล่าสุดของแต่ละเครื่อง จากตารางที่มีอยู่\nconst machineFreeAt={};\ntry{ for(const it of $('อ่านตารางผลิต').all()){ const row=it.json; const m=String(pick(row,'เครื่องจักร')||'').trim(); if(!m)continue;\n  const fin=parseDT(pick(row,'วันที่สิ้นสุดผลิตสินค้า'),pick(row,'เวลาสิ้นสุดผลิตสินค้า'));\n  if(fin&&(!machineFreeAt[m]||fin>machineFreeAt[m])) machineFreeAt[m]=fin;\n} }catch(e){}\n\nconst now=new Date();\nconst ymd=`${pad(now.getFullYear()%100,2)}${pad(now.getMonth()+1,2)}${pad(now.getDate(),2)}`;\nconst today=fmtD(now);\nconst shiftStart=()=>{ const d=new Date(); d.setHours(START_HOUR,0,0,0); return d; };\nconst addHours=(b,h)=>new Date(b.getTime()+h*3600*1000);\n\n// (1) รวมสินค้าซ้ำทั้ง input -> รวมจำนวน + ใช้เครื่องเดียว\nconst mergedAll={};\nfor(const it of $input.all()){\n  const r=it.json;\n  const machine=String(r['เครื่องจักร']??'').trim();\n  const qty=num(r['จำนวนที่ต้องผลิตเพิ่ม (ใบ)']);\n  if(!machine||qty<=0)continue;\n  const name=r['ชื่อสินค้า']??''; const code=String(r['รหัสสินค้า']??'').trim(); const color=colorOf(name);\n  const key=[name,code,color].join(' ¦ ');\n  const cap=fnum(r['กำลังผลิตจริง (ใบ/ชม)']); const hrs=num(r['เวลาผลิต (ชม)']); const date=toYMD(r['วันที่ผลิต']);\n  const mat=matOf(code,color)||{resin:null,bag:null,calW:null,pack:null,mbType:null,mbRatio:null};\n  if(mergedAll[key]){ const e=mergedAll[key]; e.qty+=qty; e.hoursSum+=hrs; if(date&&(!e.date||date<e.date))e.date=date; e.dup++; }\n  else mergedAll[key]={ machine,name,code,color,qty,hoursSum:hrs,cap,date,dup:1, resin:mat.resin,bag:mat.bag,calW:mat.calW,pack:mat.pack,mbType:mat.mbType,mbRatio:mat.mbRatio };\n}\nconst byMachine={};\nfor(const e of Object.values(mergedAll)){\n  e.hours=(e.cap&&e.cap>0)?Math.round(e.qty/e.cap*100)/100:e.hoursSum;   // เวลา = จำนวนรวม ÷ กำลังผลิต\n  (byMachine[e.machine]=byMachine[e.machine]||[]).push(e);\n}\n\n// (2) จัดกลุ่มเป็นใบ (bins)\nconst warnings=[]; const bins=[];\nfor(const [machine,prods] of Object.entries(byMachine)){\n  const cap=slotCap(machine); const groups={};\n  for(const p of prods){\n    if(!p.resin) bins.push({machine,cap,resin:'',date:p.date,items:[p]});\n    else { const key=p.resin+' ¦ '+(p.mbType||'(ไม่มีสี)')+' ¦ '+(p.date||''); (groups[key]=groups[key]||[]).push(p); }\n  }\n  for(const list of Object.values(groups)){\n    const resin=list[0].resin, gdate=list[0].date; list.sort((a,b)=>b.qty-a.qty);\n    let bin=null;\n    for(const p of list){\n      if(bin){ const bags=new Set(bin.items.map(x=>x.bag)); if((bags.has(p.bag)||bags.size<2)&&bin.items.length<cap){ bin.items.push(p); continue; } }\n      bin={machine,cap,resin,date:gdate,items:[p]}; bins.push(bin);\n    }\n  }\n}\n\n// (2b) เรียงใบตามเครื่อง + วันที่วางแผน แล้วไล่คิวไม่ให้เวลาชนกัน\nbins.sort((a,b)=>{ if(a.machine!==b.machine)return a.machine<b.machine?-1:1;\n  const da=(a.date?atHour(a.date):shiftStart()).getTime(); const db=(b.date?atHour(b.date):shiftStart()).getTime(); return da-db; });\n\n\n// (2c) เตรียมข้อมูลจัดตารางต่อใบ: จำนวนคน (สินค้าเดียว=1, หลายสินค้า=2), เวลาผลิต, วันแผน\nfor(const bin of bins){\n  bin.workers = new Set(bin.items.map(p=>p.name)).size<=1?1:2;\n  bin.dur = bin.items.reduce((m,p)=>Math.max(m,p.hours),0);\n  bin.planned = bin.date?atHour(bin.date):shiftStart();\n}\n\n// ---- ตัวจัดตารางแบบจำกัดคนงาน 4 คนต่อเนื่องตลอด 24 ชม. (ลำดับ=คิวเดิม + เติมคนว่าง: ข้ามไปหยิบใบถัดไปที่คนพอ+เครื่องว่างได้) ----\nfunction scheduleBins(bins, machineFreeAt) {\n  const MAX = 4;\n  const ms = d => d.getTime();\n  const addH = (base, h) => new Date(base.getTime() + h * 3600 * 1000);\n  let free = MAX;\n  const running = [];              // {end(ms), workers}\n  const queue = bins.slice();      // priority order\n  const mfree = {};                // machine -> free-at (ms)\n  for (const k in machineFreeAt) if (machineFreeAt[k]) mfree[k] = ms(machineFreeAt[k]);\n  const machFree = m => (mfree[m] != null ? mfree[m] : -Infinity);\n  const elig = b => Math.max(ms(b.planned), machFree(b.machine));   // earliest time a bin could start\n\n  let t = queue.length ? Math.min(...queue.map(b => ms(b.planned))) : 0;\n  let guard = 0;\n  while ((queue.length || running.length) && guard++ < 1000000) {\n    // 1) ปล่อยงานที่เดินเสร็จ ณ เวลา t -> คืนคน\n    for (let i = running.length - 1; i >= 0; i--) if (running[i].end <= t) { free += running[i].workers; running.splice(i, 1); }\n    // 2) เริ่มใบตามคิว เท่าที่คนพอ (ใบไหนคนไม่พอ = ข้ามไปหยิบใบถัดไปที่คนพอ+เครื่องว่าง เพื่อเติมคนให้เต็ม ไม่ปล่อยว่าง)\n    for (let i = 0; i < queue.length; i++) {\n      const b = queue[i];\n      if (ms(b.planned) > t) continue;      // ยังไม่ถึงวันแผน\n      if (machFree(b.machine) > t) continue; // เครื่องยังไม่ว่าง\n      if (free >= b.workers) {\n        b.start = new Date(t); b.end = addH(b.start, b.dur);\n        free -= b.workers; running.push({ end: ms(b.end), workers: b.workers });\n        mfree[b.machine] = ms(b.end);         // เครื่องไม่ว่างจนจบใบนี้\n        queue.splice(i, 1); i--;\n      } else continue;                         // คนไม่พอใบนี้ -> ข้ามไปหยิบใบถัดไปที่คนพอ+เครื่องว่าง (เติมคนว่าง)\n    }\n    if (!queue.length && !running.length) break;\n    // 3) เดินเวลาไปเหตุการณ์ถัดไป: งานเดินเสร็จ (คืนคน) หรือ ใบใหม่ถึงกำหนด/เครื่องว่าง\n    const nextEnd = running.length ? Math.min(...running.map(r => r.end)) : Infinity;\n    let nextElig = Infinity;\n    for (const b of queue) { const e = elig(b); if (e > t && e < nextElig) nextElig = e; }\n    let nt = Math.min(nextEnd, nextElig);\n    if (!isFinite(nt) || nt <= t) nt = t + 3600 * 1000;   // safety กันค้าง\n    t = nt;\n  }\n  for (const b of bins) if (!b.start) { b.start = new Date(b.planned.getTime()); b.end = addH(b.start, b.dur); }\n  for (const k in mfree) machineFreeAt[k] = new Date(mfree[k]);\n  return bins;\n}\n\n// (2d) จัดตาราง (คนว่างเมื่อเครื่องเดินเสร็จ -> ไปเริ่มใบถัดไปในคิว)\nconst machineFreeAt0 = { ...machineFreeAt };   // เก็บตารางเดิมไว้ก่อน (splitFill re-schedule จากฐานเดิม)\nscheduleBins(bins, machineFreeAt);\n\n// (2e) ซอยงานก้อนใหญ่ไปเครื่องว่างเพื่อเติมคนว่าง (สินค้า→เครื่องที่เคยผลิตได้+กำลังผลิต จากตารางคุณภาพ)\nconst MACHINE_OPTIONS = {\"ขวดอนันดา 350\":{\"PF8/3\":1566.1},\"ขวดเซ็นทรัล 350\":{\"PF8/3\":1566.1},\"ขวด Vince 500\":{\"PF8/3\":1565.2,\"PF8/5\":1066.7},\"ขวดปาปาแพค 200 KR\":{\"PF8/3\":1566.1,\"TE\":1623.4},\"ขวดอนันดา 320\":{\"PF8/3\":1566.1},\"ขวดโฮมเฟรชมาร์ท 1500 (OX Series)\":{\"PF8/5\":1000},\"ขวดเบลมองด์ 500\":{\"PF8/5\":993.1},\"ขวด 1000 กรีนเมท\":{\"PF8/5\":1066.7},\"ขวดนูบูน 1000\":{\"PF8/5\":1028.6,\"TE\":1629},\"ขวด Vince 1000\":{\"PF8/5\":1028.6,\"TE\":820},\"ขวด 400 กรีนเมท\":{\"PF8/7\":1714.3,\"PF8/8\":2087},\"ขวด 400 BSC\":{\"PF8/7\":1774.5,\"PF8/8\":2088.5},\"ขวดนูบูน 500\":{\"PF8/7\":1785.9},\"ขวดไคโอ 350\":{\"PF8/7\":1804.2,\"PF8/8\":2057.6},\"ขวดไอดีล 500\":{\"PF8/7\":1809.6},\"ขวดเคลลี่ 450\":{\"PF8/7\":1794.2,\"PF8/8\":2063.2},\"ขวดปาปาแพค 220 KR\":{\"PF8/8\":2066},\"ขวดออนเดอะเทเบิ้ล 330 (OB Series) V1\":{\"PF8/8\":2054.2},\"ขวด CPC 1 ลิตร\":{\"ASB250/3\":621.5},\"ขวดมะพร้าว 1000\":{\"ASB250/3\":643.9},\"ขวดเหล่าธงสิงห์ 1000\":{\"ASB250/3\":1041.6},\"ขวดฉั่วฮะเส็ง 380\":{\"TE\":1841.4},\"ขวดซากุระ 700\":{\"TE\":1472.4},\"ขวดปาปาแพค 150 KR\":{\"TE\":1618},\"ขวดทานตะวัน 730\":{\"TE\":1629},\"ขวดกรุงสยาม 450 V2\":{\"TE\":1690.1},\"ขวดอินโนเฟรช 465\":{\"TE\":1375.6}};\nfunction splitFillPass(bins){\n  const MAX=4, MIN_H=SPLIT_MIN_H, MIN_QTY=SPLIT_MIN_QTY, MAXIT=12, MAX_PP=SPLIT_MAX_PER_PRODUCT, MAX_TOT=SPLIT_MAX_TOTAL;\n  const NOSPLIT=new Set(SPLIT_NOSPLIT); const cN=s=>String(s||'').split('|')[0].trim();\n  const idleWin=()=>{ const ev=[...new Set(bins.flatMap(b=>[b.start.getTime(),b.end.getTime()]))].sort((a,b)=>a-b); const w=[];\n    for(let i=0;i<ev.length-1;i++){ const t=ev[i],t2=ev[i+1]; const run=bins.filter(b=>b.start.getTime()<=t&&b.end.getTime()>t); const u=run.reduce((s,b)=>s+b.workers,0); if(u<MAX&&run.length)w.push({a:t,b:t2,idle:MAX-u,running:run}); } return w; };\n  const dom=bin=>bin.items.reduce((bst,it)=>(!bst||it.hours>bst.hours)?it:bst,null);\n  const sndH=(bin,ex)=>bin.items.reduce((m,it)=>(it!==ex&&it.hours>m)?it.hours:m,0);\n  const busy=(M,a,b)=>bins.some(bin=>bin.machine===M&&bin.start.getTime()<b&&bin.end.getTime()>a);\n  const nextStart=(M,a)=>{ let n=Infinity; for(const bin of bins)if(bin.machine===M){const s=bin.start.getTime(); if(s>=a&&s<n)n=s;} return n; };\n  const qtyAll=()=>bins.reduce((s,b)=>s+b.items.reduce((x,i)=>x+(+i.qty||0),0),0);\n  const total0=qtyAll(); const splitCount={}; let did=0;\n  const resched=()=>{ for(const b of bins){delete b.start;delete b.end;} scheduleBins(bins,{...machineFreeAt0}); };\n  for(let iter=0;iter<MAXIT&&did<MAX_TOT;iter++){\n    const wins=idleWin().filter(w=>(w.b-w.a)>=MIN_H*3600e3).sort((x,y)=>(y.idle*(y.b-y.a))-(x.idle*(x.b-x.a)));\n    let best=null;\n    for(const w of wins){\n      for(const B of w.running){\n        if(!B.items||!B.items.length)continue;\n        const it=dom(B), pc=cN(it.name), opt=MACHINE_OPTIONS[pc];\n        if(!opt||NOSPLIT.has(pc)||(splitCount[pc]||0)>=MAX_PP)continue;\n        const rateSrc=opt[B.machine]||(it.hours?it.qty/it.hours:0); if(!rateSrc||it.hours<MIN_H)continue;\n        const floorH=sndH(B,it);\n        for(const M of Object.keys(opt)){\n          if(M===B.machine||busy(M,w.a,w.b))continue;\n          const rateDst=opt[M]; if(!rateDst)continue;\n          const winH=(Math.min(w.b,nextStart(M,w.a))-w.a)/3600e3; if(winH<MIN_H)continue;\n          const tDst=Math.min(it.qty/(rateSrc+rateDst),winH); let qtyDst=Math.floor(rateDst*tDst);\n          if(qtyDst>=it.qty)qtyDst=it.qty-MIN_QTY; if(qtyDst<MIN_QTY)continue;\n          const gain=it.hours-Math.max((it.qty-qtyDst)/rateSrc,floorH); if(gain<MIN_H)continue;\n          if(!best||gain>best.gain)best={B,it,pc,M,rateSrc,rateDst,qtyDst,gain};\n        }\n      }\n      if(best)break;\n    }\n    if(!best)break;\n    const {B,it,pc,M,rateSrc,rateDst,qtyDst}=best;\n    it.qty-=qtyDst; it.hours=it.qty/rateSrc; B.dur=B.items.reduce((m,x)=>Math.max(m,x.hours),0);\n    const ni={...it,qty:qtyDst,cap:rateDst,hours:qtyDst/rateDst,machine:M};\n    bins.push({machine:M,cap:slotCap(M),resin:it.resin,date:B.date,planned:B.planned,items:[ni],workers:1,dur:qtyDst/rateDst,split:true,splitFrom:B.machine});\n    warnings.push(`ซอย ${cN(it.name)} ${qtyDst.toLocaleString()} ใบ → ${M} (เติมคนว่าง)`);\n    splitCount[pc]=(splitCount[pc]||0)+1; did++; resched();\n  }\n  if(Math.abs(qtyAll()-total0)>1) throw new Error('จำนวนรวมเพี้ยน');\n  return did;\n}\nif(SPLIT_FILL){ try{ splitFillPass(bins); }catch(e){ warnings.push('splitFill ข้าม: '+e.message); scheduleBins(bins,{...machineFreeAt0}); } }\n\n// 3) สร้างแถวใบสั่งผลิต (เวลาเริ่ม/จบจากตัวจัดตาราง) — ไม่มี \"รอบ\" แล้ว\nconst rows=[];\nfor(const bin of bins){\n  const cap=bin.cap; const items=bin.items.slice().sort((a,b)=>b.qty-a.qty); const N=items.length;\n  if(N>cap) warnings.push(`เครื่อง ${bin.machine}: กลุ่ม resin เดียวกันมี ${N} ตัว > ${cap} ช่อง`);\n  const slotsPer=items.map(()=>1); slotsPer[0]+=Math.max(0,cap-N);\n  const slotName=[],slotQty=[];\n  items.forEach((p,i)=>{ const cnt=slotsPer[i],base=Math.floor(p.qty/cnt),rem=p.qty-base*cnt; for(let s=0;s<cnt;s++){ slotName.push(p.name); slotQty.push(base+(s===cnt-1?rem:0)); } });\n  while(slotName.length<4){ slotName.push(''); slotQty.push(''); }\n\n  const start=bin.start, end=bin.end;\n  const workers=bin.workers;\n  const prim=items[0];\n  const resinType=prim.resin;\n  const resinKg=Math.round(items.reduce((s,p)=>s+p.qty*(p.calW||0),0)/1000*10)/10||null;\n  const mbType=prim.mbType;\n  const mbKg=(resinKg!=null&&prim.mbRatio)?Math.round(resinKg*prim.mbRatio*100)/100:null;\n  const bagList=[...new Set(items.map(p=>p.bag).filter(Boolean))];\n  const bag1=prim.bag||bagList[0]||null;\n  const bag2=bagList.find(b=>b!==bag1)||null;\n  const bagsFor=bt=>{ let s=0,any=false; for(const p of items) if(p.bag===bt){ any=true; if(p.pack>0)s+=Math.ceil(p.qty/p.pack); } return any?s:null; };\n  const dupNote=items.filter(p=>p.dup>1).map(p=>`รวมซ้ำ \"${p.name}\" ${p.dup} รายการ`).join(' | ');\n  const warnNote=warnings.filter(w=>w.includes(bin.machine)).join(' | ');\n\n  rows.push({ machine:bin.machine, start, workers, json:{\n    'รอบ':null,'วันที่ออกเอกสาร':today,'เครื่องจักร':bin.machine,\n    'วันที่เริ่มผลิตสินค้า':fmtD(start),'เวลาเริ่มผลิตสินค้า':fmtT(start),\n    'ชื่อสินค้า แม่พิมพ์ตัวที่ 1':slotName[0],'ชื่อสินค้า แม่พิมพ์ตัวที่ 2':slotName[1],'ชื่อสินค้า แม่พิมพ์ตัวที่ 3':slotName[2],'ชื่อสินค้า แม่พิมพ์ตัวที่ 4':slotName[3],\n    'เลขที่ใบสั่งผลิต':null,'ประเภทการผลิต':'ขวดเปล่า','จำนวนคนงาน':workers,\n    'วันที่สิ้นสุดผลิตสินค้า':fmtD(end),'เวลาสิ้นสุดผลิตสินค้า':fmtT(end),\n    'จำนวนสั่งผลิต1':slotQty[0],'จำนวนสั่งผลิต2':slotQty[1],'จำนวนสั่งผลิต3':slotQty[2],'จำนวนสั่งผลิต4':slotQty[3],\n    'ประเภทเม็ดวัตถุดิบ':resinType,'ประเภทเม็ดสี':mbType,\n    'ขนาดถุงมาตรฐาน ชนิดที่ 1':bag1,'ขนาดถุงมาตรฐาน ชนิดที่ 2':bag2,\n    'น้ำหนักเม็ดวัตถุดิบ':resinKg,'น้ำหนักเม็ดสี':mbKg,\n    'จำนวนถุงที่ใช้ทั้งหมด ชนิดที่ 1':bag1?bagsFor(bag1):null,'จำนวนถุงที่ใช้ทั้งหมด ชนิดที่ 2':bag2?bagsFor(bag2):null,\n    '_หมายเหตุ':[dupNote,warnNote].filter(Boolean).join(' | '),\n  }});\n}\n\n// 4) ไม่มีรอบ — เรียงตามเวลาเริ่ม (แล้วเครื่อง) ใส่เลขที่ใบสั่งผลิต ('รอบ' ปล่อยว่าง)\nrows.sort((a,b)=> (a.start.getTime()-b.start.getTime()) || (a.machine<b.machine?-1:a.machine>b.machine?1:0));\nreturn rows.map((r,i)=>{ r.json['เลขที่ใบสั่งผลิต']=`DBM-${ymd}-${mCode(r.machine)}-${pad(i+1,3)}`; return {json:r.json}; });\n})();"
+      },
+      "id": "68bf7e9d-6824-4397-980f-7e617925bf15",
+      "name": "สร้างใบสั่งผลิต",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1552,
+        848
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "clear",
+        "documentId": {
+          "__rl": true,
+          "value": "18owLhg94QmYCXfQ_jOlCuoPkSV4a1APprAjYJN4Wj8w",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 1559920379,
+          "mode": "list",
+          "cachedResultName": "TPI | Production Planning| 2026"
+        },
+        "keepFirstRow": true
+      },
+      "id": "e4496232-5213-4f74-9845-c1ac3661713a",
+      "name": "ล้าง Planning",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        -1328,
+        464
+      ],
+      "executeOnce": true,
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "a4Xw1y7SaDpe3N5m",
+          "name": "dts-n8n"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "return $('เลือกเครื่อง (รวม 3 มิติ)').all().map(i=>({json:i.json}));"
+      },
+      "id": "8a136293-2fd1-4f91-a3d3-41a8a3624270",
+      "name": "คืนข้อมูล Planning",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1104,
+        464
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "18owLhg94QmYCXfQ_jOlCuoPkSV4a1APprAjYJN4Wj8w",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 1559920379,
+          "mode": "list",
+          "cachedResultName": "TPI | Production Planning| 2026"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "วันที่ผลิต": "={{ $json[\"_วันเริ่มแผน\"] }}",
+            "ชื่อสินค้า": "={{ $json[\"ชื่อสินค้า\"] }}",
+            "รหัสสินค้า": "={{ $json[\"รหัสสินค้า\"] }}",
+            "จำนวนที่ต้องผลิตเพิ่ม (ใบ)": "={{ $json[\"_ยอดตั้งต้น\"] }}",
+            "จำนวนที่ผลิตแล้ว (ใบ)": "={{ $json[\"_ผลิตแล้ว\"] }}",
+            "วัน Delivery": "={{ $json[\"วัน Delivery\"] }}",
+            "เครื่องจักร": "={{ $json[\"เครื่องจักร\"] }}",
+            "Cycle Time (s)": "={{ $json[\"Cycle Time (s)\"] }}",
+            "กำลังผลิตจริง (ใบ/ชม)": "={{ $json[\"กำลังผลิตจริง (ใบ/ชม)\"] }}",
+            "เวลาผลิต (ชม)": "={{ $json[\"เวลาผลิต (ชม)\"] }}",
+            "สถานะเครื่อง": "",
+            "หมายเหตุ": "={{ $json[\"หมายเหตุ\"] }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "วันที่ผลิต",
+              "displayName": "วันที่ผลิต",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "ชื่อสินค้า",
+              "displayName": "ชื่อสินค้า",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "รหัสสินค้า",
+              "displayName": "รหัสสินค้า",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "จำนวนที่ต้องผลิตเพิ่ม (ใบ)",
+              "displayName": "จำนวนที่ต้องผลิตเพิ่ม (ใบ)",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "จำนวนที่ผลิตแล้ว (ใบ)",
+              "displayName": "จำนวนที่ผลิตแล้ว (ใบ)",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "วัน Delivery",
+              "displayName": "วัน Delivery",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "เครื่องจักร",
+              "displayName": "เครื่องจักร",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Cycle Time (s)",
+              "displayName": "Cycle Time (s)",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "กำลังผลิตจริง (ใบ/ชม)",
+              "displayName": "กำลังผลิตจริง (ใบ/ชม)",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "เวลาผลิต (ชม)",
+              "displayName": "เวลาผลิต (ชม)",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "สถานะเครื่อง",
+              "displayName": "สถานะเครื่อง",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "หมายเหตุ",
+              "displayName": "หมายเหตุ",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "id": "71f467fa-0106-45a1-83ff-60134c3ad383",
+      "name": "เขียน Planning ใหม่",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        -880,
+        464
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "a4Xw1y7SaDpe3N5m",
+          "name": "dts-n8n"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "clear",
+        "documentId": {
+          "__rl": true,
+          "value": "18owLhg94QmYCXfQ_jOlCuoPkSV4a1APprAjYJN4Wj8w",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 1421446568,
+          "mode": "list",
+          "cachedResultName": "รายการสั่งผลิตสินค้า T1"
+        },
+        "keepFirstRow": true
+      },
+      "id": "3975f6fb-1611-43d0-a787-b3ee7ca21ce7",
+      "name": "ล้าง รายการ T1",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        -1328,
+        848
+      ],
+      "executeOnce": true,
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "a4Xw1y7SaDpe3N5m",
+          "name": "dts-n8n"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "return $('สร้างใบสั่งผลิต').all().map(i=>({json:i.json}));"
+      },
+      "id": "6989183c-4a6b-4385-8670-9639d24f18f0",
+      "name": "คืนข้อมูล รายการ",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1104,
+        848
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "18owLhg94QmYCXfQ_jOlCuoPkSV4a1APprAjYJN4Wj8w",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 1421446568,
+          "mode": "list",
+          "cachedResultName": "รายการสั่งผลิตสินค้า T1",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/18owLhg94QmYCXfQ_jOlCuoPkSV4a1APprAjYJN4Wj8w/edit#gid=1421446568"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "วันที่ออกเอกสาร",
+              "displayName": "วันที่ออกเอกสาร",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "เครื่องจักร",
+              "displayName": "เครื่องจักร",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "วันที่เริ่มผลิตสินค้า",
+              "displayName": "วันที่เริ่มผลิตสินค้า",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "จำนวนคนงาน",
+              "displayName": "จำนวนคนงาน",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "รอบ",
+              "displayName": "รอบ",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "เวลาเริ่มผลิตสินค้า",
+              "displayName": "เวลาเริ่มผลิตสินค้า",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "ชื่อสินค้า แม่พิมพ์ตัวที่ 1",
+              "displayName": "ชื่อสินค้า แม่พิมพ์ตัวที่ 1",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "ชื่อสินค้า แม่พิมพ์ตัวที่ 2",
+              "displayName": "ชื่อสินค้า แม่พิมพ์ตัวที่ 2",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "ชื่อสินค้า แม่พิมพ์ตัวที่ 3",
+              "displayName": "ชื่อสินค้า แม่พิมพ์ตัวที่ 3",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "ชื่อสินค้า แม่พิมพ์ตัวที่ 4",
+              "displayName": "ชื่อสินค้า แม่พิมพ์ตัวที่ 4",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "เลขที่ใบสั่งผลิต",
+              "displayName": "เลขที่ใบสั่งผลิต",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "ประเภทการผลิต",
+              "displayName": "ประเภทการผลิต",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "วันที่สิ้นสุดผลิตสินค้า",
+              "displayName": "วันที่สิ้นสุดผลิตสินค้า",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "เวลาสิ้นสุดผลิตสินค้า",
+              "displayName": "เวลาสิ้นสุดผลิตสินค้า",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "จำนวนสั่งผลิต1",
+              "displayName": "จำนวนสั่งผลิต1",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "จำนวนสั่งผลิต2",
+              "displayName": "จำนวนสั่งผลิต2",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "จำนวนสั่งผลิต3",
+              "displayName": "จำนวนสั่งผลิต3",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "จำนวนสั่งผลิต4",
+              "displayName": "จำนวนสั่งผลิต4",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "ประเภทเม็ดวัตถุดิบ",
+              "displayName": "ประเภทเม็ดวัตถุดิบ",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "ประเภทเม็ดสี",
+              "displayName": "ประเภทเม็ดสี",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "ขนาดถุงมาตรฐาน ชนิดที่ 1",
+              "displayName": "ขนาดถุงมาตรฐาน ชนิดที่ 1",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "ขนาดถุงมาตรฐาน ชนิดที่ 2",
+              "displayName": "ขนาดถุงมาตรฐาน ชนิดที่ 2",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "น้ำหนักเม็ดวัตถุดิบ",
+              "displayName": "น้ำหนักเม็ดวัตถุดิบ",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "น้ำหนักเม็ดสี",
+              "displayName": "น้ำหนักเม็ดสี",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "จำนวนถุงที่ใช้ทั้งหมด ชนิดที่ 1",
+              "displayName": "จำนวนถุงที่ใช้ทั้งหมด ชนิดที่ 1",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "จำนวนถุงที่ใช้ทั้งหมด ชนิดที่ 2",
+              "displayName": "จำนวนถุงที่ใช้ทั้งหมด ชนิดที่ 2",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "_หมายเหตุ",
+              "displayName": "_หมายเหตุ",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "id": "b7bd3a63-4347-4c63-a173-138a9bd5acc6",
+      "name": "เขียน รายการ T1 ใหม่",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        -880,
+        848
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "a4Xw1y7SaDpe3N5m",
+          "name": "dts-n8n"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "18owLhg94QmYCXfQ_jOlCuoPkSV4a1APprAjYJN4Wj8w",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 1998641344,
+          "mode": "list",
+          "cachedResultName": "machine_status",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/18owLhg94QmYCXfQ_jOlCuoPkSV4a1APprAjYJN4Wj8w/edit#gid=1998641344"
+        },
+        "options": {}
+      },
+      "id": "88b67fe2-2b1d-49af-a9bf-cb3c20eae062",
+      "name": "อ่านสถานะเครื่อง",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        -3120,
+        368
+      ],
+      "executeOnce": true,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "a4Xw1y7SaDpe3N5m",
+          "name": "dts-n8n"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.errorTrigger",
+      "typeVersion": 1,
+      "position": [
+        -3584,
+        0
+      ],
+      "id": "8aea81a3-b3e2-4e2f-8f41-97a0a260a7cb",
+      "name": "Error Trigger"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://ntfy.sh/tpi-err-n8n-5697b86b-c202-46c6-aba0-132a5d5f1641",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Title",
+              "value": "n8n Workflow Error"
+            },
+            {
+              "name": "Priority",
+              "value": "high"
+            },
+            {
+              "name": "Tags",
+              "value": "warning"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "text/plain",
+        "body": "={{ \"❌ n8n Workflow Error\\n\\nWorkflow: \" + ($json.workflow?.name ?? \"FM-DQM-002\") + \"\\nNode: \" + ($json.execution?.lastNodeExecuted ?? \"Unknown\") + \"\\nError: \" + ($json.execution?.error?.message ?? $json.error?.message ?? \"Unknown error\") + \"\\nExecution ID: \" + ($json.execution?.id ?? \"-\") + \"\\nเวลา: \" + $now.toFormat('dd/MM/yyyy HH:mm:ss') }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        -3312,
+        -160
+      ],
+      "id": "17c79fe8-96cd-41c4-9264-9d0f80dff72b",
+      "name": "err-ntfy",
+      "retryOnFail": true,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.line.me/v2/bot/message/push",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer oi8iWesT6LfWpBeUiiGcl2MDqRoui2c1oWpH9NnOOcDvjqdeYV2hsvyLHOHmUQyFYDr35gOI93l7QKa6UMoKLbstEyfJHHoRJyi0LN71gl5bkM+I1R06GWOKbpjbYhflH6VZImk/9yh/S7Zl8wvG1wdB04t89/1O/w1cDnyilFU="
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { \"to\": \"C306ebbefc8c3bcc6fc91816da248a3e9\", \"messages\": [ { \"type\": \"text\", \"text\": \"❌ n8n Workflow Error\\n\\nWorkflow: \" + ($json.workflow?.name ?? \"FM-DQM-002\") + \"\\nNode: \" + ($json.execution?.lastNodeExecuted ?? \"Unknown\") + \"\\nError: \" + ($json.execution?.error?.message ?? $json.error?.message ?? \"Unknown error\") + \"\\nExecution ID: \" + ($json.execution?.id ?? \"-\") + \"\\nเวลา: \" + $now.toFormat('dd/MM/yyyy HH:mm:ss') } ] } }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        -3312,
+        0
+      ],
+      "id": "a94cfa1f-c68c-431b-ae1e-9c0a63b487b6",
+      "name": "err-line",
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000,
+      "onError": "continueRegularOutput"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "ทุกวัน 06:00 (Schedule)": {
+      "main": [
+        [
+          {
+            "node": "อ่าน Loss report",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "รันเอง (Manual)": {
+      "main": [
+        [
+          {
+            "node": "อ่าน Loss report",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "อ่าน Loss report": {
+      "main": [
+        [
+          {
+            "node": "อ่านสถานะเครื่อง",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "อ่านรายการ T1": {
+      "main": [
+        [
+          {
+            "node": "อ่าน map",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "อ่าน map": {
+      "main": [
+        [
+          {
+            "node": "อ่าน Product Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "อ่าน Product Data": {
+      "main": [
+        [
+          {
+            "node": "อ่าน MachineStats",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "อ่าน MachineStats": {
+      "main": [
+        [
+          {
+            "node": "อ่าน Planning",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "อ่าน Planning": {
+      "main": [
+        [
+          {
+            "node": "คำนวณคงเหลือ (re-plan)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "คำนวณคงเหลือ (re-plan)": {
+      "main": [
+        [
+          {
+            "node": "ข้อมูลครบ & ยังไม่กำหนดเครื่อง?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "ข้อมูลครบ & ยังไม่กำหนดเครื่อง?": {
+      "main": [
+        [
+          {
+            "node": "เลือกเครื่องจักร v2.0",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "เลือกเครื่องจักร v2.0": {
+      "main": [
+        [
+          {
+            "node": "เลือกเครื่อง (รวม 3 มิติ)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "เลือกเครื่อง (รวม 3 มิติ)": {
+      "main": [
+        [
+          {
+            "node": "ล้าง Planning",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "สร้างใบสั่งผลิต",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "ล้าง Planning": {
+      "main": [
+        [
+          {
+            "node": "คืนข้อมูล Planning",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "คืนข้อมูล Planning": {
+      "main": [
+        [
+          {
+            "node": "เขียน Planning ใหม่",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "สร้างใบสั่งผลิต": {
+      "main": [
+        [
+          {
+            "node": "ล้าง รายการ T1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "ล้าง รายการ T1": {
+      "main": [
+        [
+          {
+            "node": "คืนข้อมูล รายการ",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "คืนข้อมูล รายการ": {
+      "main": [
+        [
+          {
+            "node": "เขียน รายการ T1 ใหม่",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "อ่านสถานะเครื่อง": {
+      "main": [
+        [
+          {
+            "node": "อ่านรายการ T1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Error Trigger": {
+      "main": [
+        [
+          {
+            "node": "err-line",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "err-ntfy",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false,
+    "timeSavedMode": "fixed",
+    "callerPolicy": "workflowsFromSameOwner"
+  },
+  "versionId": "bd634963-2d53-4f1b-8f48-28509bfc1820",
+  "meta": {
+    "instanceId": "8b89bacf03b33df343a7dd9f17cf1721598896265238cfb8ad22fd7cae20c33a"
+  },
+  "id": "yhhW25KmHIKYsHrv",
+  "tags": []
+}

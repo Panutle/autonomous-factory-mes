@@ -1,0 +1,713 @@
+{
+  "name": "tpi-ai-planing-line-order",
+  "nodes": [
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.line.me/v2/bot/message/push",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer oi8iWesT6LfWpBeUiiGcl2MDqRoui2c1oWpH9NnOOcDvjqdeYV2hsvyLHOHmUQyFYDr35gOI93l7QKa6UMoKLbstEyfJHHoRJyi0LN71gl5bkM+I1R06GWOKbpjbYhflH6VZImk/9yh/S7Zl8wvG1wdB04t89/1O/w1cDnyilFU="
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ to: $('ประมวลผล').first().json.to, messages: [ { type: 'text', text: $('ประมวลผล').first().json.replyText } ] }) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        1152,
+        1232
+      ],
+      "id": "c3b83c98-9fa9-4340-8f15-45dfbe77c24a",
+      "name": "ตอบกลับ (push)",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "ef5e5717-850d-4078-ab45-3498beb28f43",
+        "options": {
+          "responseCode": {
+            "values": {}
+          }
+        }
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -560,
+        1216
+      ],
+      "id": "6c292619-147b-4226-8a7c-571ead904cea",
+      "name": "Webhook",
+      "webhookId": "ef5e5717-850d-4078-ab45-3498beb28f43"
+    },
+    {
+      "parameters": {
+        "jsCode": "// อ่าน event จาก LINE + หา/ตรวจ \"ลายเซ็น\" (X-Line-Signature)\nconst inp = $input.first();\nconst j = (inp && inp.json) || {};\nconst headers = j.headers || {};\nconst sig = headers['x-line-signature'] || headers['X-Line-Signature'] || '';\n\n// หา raw body (ต้องเปิด option \"Raw Body\" ในโหนด LINE Webhook ถึงจะตรวจ HMAC ได้)\nlet raw = null;\nif (typeof j.rawBody === 'string') raw = j.rawBody;\nelse if (typeof j.body === 'string') raw = j.body;\nelse if (inp && inp.binary && inp.binary.data) {\n  try { const d = inp.binary.data; raw = Buffer.from(d.data || d, 'base64').toString('utf8'); } catch (e) {}\n}\n\n// events: จาก raw (ถ้ามี) มิฉะนั้นจาก body ที่ n8n parse ให้แล้ว\nlet payload = {};\nif (raw) { try { payload = JSON.parse(raw); } catch (e) { payload = (j.body && typeof j.body === 'object') ? j.body : {}; } }\nelse payload = (j.body && typeof j.body === 'object') ? j.body : {};\nconst events = Array.isArray(payload.events) ? payload.events : [];\n\n// ตรวจลายเซ็น HMAC-SHA256(channel secret, raw) เทียบ header  (null = ยังตรวจไม่ได้)\nlet secret = ''; try { secret = ($env && $env.LINE_CHANNEL_SECRET) || ''; } catch (e) { secret = ''; }\nlet sigValid = null;\ntry {\n  if (secret && raw) {\n    const crypto = require('crypto');\n    const expected = crypto.createHmac('sha256', secret).update(raw, 'utf8').digest('base64');\n    sigValid = (expected === sig);\n  }\n} catch (e) { sigValid = null; }\n\n// ออก 1 item ต่อ 1 ข้อความ (event ที่เป็น message) — LINE verify (events=[]) จะได้ [] ไม่ตอบกลับ\nconst out = [];\nfor (const ev of events) {\n  if (!ev || ev.type !== 'message' || !ev.message) continue;\n  const s = ev.source || {};\n  out.push({ json: {\n    sourceType: s.type || '', userId: s.userId || '', groupId: s.groupId || '', roomId: s.roomId || '',\n    replyToken: ev.replyToken || '', msgType: ev.message.type || '', text: ev.message.text || '',\n    xLineSignature: sig, sigValid: sigValid, ts: ev.timestamp || null\n  }});\n}\nreturn out;\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -336,
+        1216
+      ],
+      "id": "41e192b5-2ca3-4b5c-84c6-b4df0ddf9b3a",
+      "name": "อ่าน event + ลายเซ็น"
+    },
+    {
+      "parameters": {
+        "jsCode": "// ============================================================\n// ตัวแยกคำสั่ง LINE → แก้ข้อมูลการผลิต (เฟส เคส 1–2: เลื่อนส่ง / แก้จำนวน)\n// pure functions (unit-testable) — n8n Code node เรียกใช้ผ่าน plumbing\n// ============================================================\n\n// ---------- helpers ----------\nconst nows = s => String(s == null ? '' : s).replace(/\\s+/g, '');\nconst num  = v => Number(String(v == null ? '' : v).replace(/,/g, '')) || 0;\nconst fmt  = n => Math.round(n).toString().replace(/\\B(?=(\\d{3})+(?!\\d))/g, ',');\nconst normMachine = m => { m = String(m == null ? '' : m).trim().toUpperCase().replace(/\\s+/g, ''); return m === 'TE1' ? 'TE' : m; };\n\n// อ่านค่าจากแถวชีตแบบทนช่องว่าง/ขึ้นบรรทัดในชื่อคอลัมน์ (เช่น \"จำนวนที่ต้องผลิตเพิ่ม (ใบ)\" / \"วัน Delivery\")\nfunction pgetKey(row, target){ const t = nows(target); for (const k in row){ if (nows(k).startsWith(t)) return k; } return null; }\nfunction pget(row, target){ const k = pgetKey(row, target); return k == null ? undefined : row[k]; }\n\n// normalize วันที่ -> d/m/yyyy (รับ dd/mm/yyyy, yyyy-mm-dd, พ.ศ.)\nfunction toDMY(s){\n  const t = String(s == null ? '' : s).trim();\n  let m = t.match(/^(\\d{1,2})\\/(\\d{1,2})\\/(\\d{2,4})/); if (m){ let Y=+m[3]; if(Y>2400)Y-=543; if(Y<100)Y+=2000; return `${+m[1]}/${+m[2]}/${Y}`; }\n  m = t.match(/^(\\d{4})-(\\d{1,2})-(\\d{1,2})/); if (m){ let Y=+m[1]; if(Y>2400)Y-=543; return `${+m[3]}/${+m[2]}/${Y}`; }\n  return null;\n}\n\n// ---------- parse ----------\nconst KW = ['เลื่อนส่ง', 'แก้จำนวน', 'ปิดงาน', 'ย้ายเครื่อง', 'ย้ายงาน', 'เปิดเครื่อง', 'ปิดเครื่อง'];\nconst LABELS = { 'เครื่อง':'machine', 'สินค้า':'product', 'ส่งใหม่':'newDelivery', 'จำนวนใหม่':'newQty',\n                 'เริ่ม':'start', 'เครื่องเสีย':'brokenMachine', 'ย้ายไป':'toMachine' };\nfunction normLabel(s){ const t = String(s || '').trim(); if (t.toLowerCase() === 'delivery') return 'delivery'; return LABELS[t] || null; }\n\nfunction parseCommand(text){\n  const raw = String(text == null ? '' : text).trim();\n  if (/^ยืนยัน\\b/.test(raw) || raw === 'ยืนยัน') return { intent:'confirm' };\n  if (/^ยกเลิก\\b/.test(raw) || raw === 'ยกเลิก') return { intent:'cancel' };\n  if (/^(help|วิธีใช้|คำสั่ง|เมนู)$/i.test(raw)) return { intent:'help' };\n  const lines = raw.split(/\\r?\\n/).map(s => s.trim()).filter(Boolean);\n  let kw = '', kwval = '';\n  for (const ln of lines){\n    if (KW.includes(ln)){ kw = ln; break; }\n    const m = ln.match(/^(เลื่อนส่ง|แก้จำนวน|ปิดงาน|ปิดเครื่อง|ย้ายเครื่อง|ย้ายงาน|เปิดเครื่อง)\\s*[:：]?\\s*(.*)$/);\n    if (m){ kw = m[1]; kwval = (m[2] || '').trim(); break; }\n  }\n  if (!kw) return { intent:'chat' };\n  const fields = {};\n  for (const ln of lines){\n    if (KW.includes(ln) || ln.indexOf(kw) === 0) continue;   // ข้ามบรรทัด keyword (bare หรือ keyword: value)\n    const m = ln.match(/^([^:：]+)[:：]\\s*(.*)$/); if (!m) continue;\n    const key = normLabel(m[1]); if (key) fields[key] = m[2].trim();\n  }\n  const cmdMap = { 'เลื่อนส่ง':'delivery', 'แก้จำนวน':'qty', 'ปิดงาน':'close', 'ย้ายเครื่อง':'move', 'ย้ายงาน':'movejob', 'เปิดเครื่อง':'open', 'ปิดเครื่อง':'shut' };\n  return { intent:'cmd', cmd: cmdMap[kw] || 'move', fields, kwval };\n}\n\n// ---------- match order ใน Planning ----------\nfunction matchOrder(planningRows, fields){\n  const tMachine = normMachine(fields.machine), tProd = nows(fields.product);\n  if (!tMachine || !tProd) return { status:'badinput' };\n  let cand = (planningRows || []).filter(r => {\n    const rm = normMachine(pget(r, 'เครื่องจักร')), rp = nows(pget(r, 'ชื่อสินค้า'));\n    return rm === tMachine && rp && (rp.includes(tProd) || tProd.includes(rp));\n  });\n  // ให้ความสำคัญงานที่ยังไม่จบ (คงเหลือ > 0)\n  const active = cand.filter(r => (num(pget(r, 'จำนวนที่ต้องผลิตเพิ่ม')) - num(pget(r, 'จำนวนที่ผลิตแล้ว'))) > 0);\n  if (active.length) cand = active;\n  // แยกความกำกวมด้วย Delivery/เริ่ม\n  if (cand.length > 1 && (fields.delivery || fields.start)){\n    cand = cand.filter(r => {\n      if (fields.delivery) return nows(pget(r, 'วันDelivery')).includes(nows(fields.delivery));\n      if (fields.start)    return nows(pget(r, 'วันที่ผลิต')).includes(nows(fields.start));\n      return true;\n    });\n  }\n  if (cand.length === 0) return { status:'none' };\n  if (cand.length > 1)  return { status:'many', matches:cand };\n  return { status:'ok', row:cand[0] };\n}\n\n// ---------- build confirm (สรุปก่อนยืนยัน) ----------\nfunction buildConfirm(cmd, row, fields){\n  const machine = String(pget(row, 'เครื่องจักร') || '').trim();\n  const prod = String(pget(row, 'ชื่อสินค้า') || '').trim();\n  const rn = pget(row, 'row_number');\n  if (cmd === 'delivery'){\n    const nd = toDMY(fields.newDelivery);\n    if (!nd) return { ok:false, error:'รูปแบบวันที่ไม่ถูก ใช้ วว/ดด/ปปปป เช่น 15/07/2026' };\n    const old = String(pget(row, 'วันDelivery') || '-').trim();\n    return { ok:true, field:pgetKey(row, 'วันDelivery'), value:nd, row_number:rn,\n             summary:`เลื่อนส่ง ${prod} (${machine}) → ${nd}`,\n             reply:`ยืนยันการแก้ไข?\\n• งาน: ${prod} (${machine})\\n• เลื่อนวันส่ง: ${old} → ${nd}\\nพิมพ์ \"ยืนยัน\" ใน 5 นาที (หรือ \"ยกเลิก\")` };\n  }\n  if (cmd === 'qty'){\n    const nq = num(fields.newQty);\n    if (!nq || nq <= 0) return { ok:false, error:'จำนวนใหม่ไม่ถูกต้อง ใส่ตัวเลข > 0 (หน่วยใบ)' };\n    const oldQ = num(pget(row, 'จำนวนที่ต้องผลิตเพิ่ม'));\n    const prod0 = num(pget(row, 'จำนวนที่ผลิตแล้ว'));\n    let note = '';\n    if (prod0 > 0) note = nq <= prod0 ? `\\n• ผลิตแล้ว ${fmt(prod0)} → เกินเป้าใหม่ งานนี้จะถูกปิด (คงเหลือ 0)` : `\\n• ผลิตแล้ว ${fmt(prod0)} · คงเหลือใหม่ ${fmt(nq - prod0)}`;\n    return { ok:true, field:pgetKey(row, 'จำนวนที่ต้องผลิตเพิ่ม'), value:nq, row_number:rn,\n             summary:`แก้จำนวน ${prod} (${machine}) → ${fmt(nq)} ใบ`,\n             reply:`ยืนยันการแก้ไข?\\n• งาน: ${prod} (${machine})\\n• แก้ยอดผลิต: ${fmt(oldQ)} → ${fmt(nq)} ใบ${note}\\nพิมพ์ \"ยืนยัน\" ใน 5 นาที (หรือ \"ยกเลิก\")` };\n  }\n  if (cmd === 'close'){\n    const prod0 = num(pget(row, 'จำนวนที่ผลิตแล้ว'));\n    return { ok:true, row_number:rn, produced:prod0,\n             summary:`ปิดงาน ${prod} (${machine}) · ผลิตแล้ว ${fmt(prod0)} ใบ`,\n             reply:`ยืนยันปิดงาน?\\n• งาน: ${prod} (${machine})\\n• ปิดที่ยอดผลิตแล้ว ${fmt(prod0)} ใบ (เหลือ 0)\\n• งานถัดไปบนเครื่องนี้จะเลื่อนขึ้นมาแทน\\nพิมพ์ \"ยืนยัน\" ใน 5 นาที (หรือ \"ยกเลิก\")` };\n  }\n  return { ok:false, error:'ยังไม่รองรับคำสั่งนี้' };\n}\n\n// ---------- apply (ตอน \"ยืนยัน\") ----------\nfunction applyConfirm(pending){\n  const update = { row_number: pending.row_number };\n  update[pending.field] = pending.value;\n  return { update, reply:`อัปเดตแล้ว ✓\\n${pending.summary}\\n(จะจัดตารางใหม่ในรอบถัดไป)` };\n}\n\n\n// ===== plumbing แยกคำสั่ง =====\nconst src = $input.first().json;\nconst p = parseCommand(src.text);\nif (p.intent === 'chat') return [];\nconst to = src.groupId || src.roomId || src.userId || '';\nreturn [{ json: { to, srcKey: to, text: src.text, sigValid: src.sigValid,\n                  intent: p.intent, cmd: p.cmd || '', fields: p.fields || {}, kwval: p.kwval || '' } }];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -112,
+        1216
+      ],
+      "id": "9e93182d-b2d9-436b-aa0a-90093d6b48b7",
+      "name": "แยกคำสั่ง"
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "18owLhg94QmYCXfQ_jOlCuoPkSV4a1APprAjYJN4Wj8w",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 1559920379,
+          "mode": "list",
+          "cachedResultName": "TPI | Production Planning| 2026"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        96,
+        1216
+      ],
+      "id": "766318da-165f-42d7-8d40-b703af82b157",
+      "name": "อ่าน Planning",
+      "executeOnce": true,
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "a4Xw1y7SaDpe3N5m",
+          "name": "dts-n8n"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "18owLhg94QmYCXfQ_jOlCuoPkSV4a1APprAjYJN4Wj8w",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 1421446568,
+          "mode": "list",
+          "cachedResultName": "รายการสั่งผลิตสินค้า T1"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        304,
+        1216
+      ],
+      "id": "0f7d361b-0222-4dfb-96d5-1a3447f04c1e",
+      "name": "อ่าน รายการ T1",
+      "executeOnce": true,
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "a4Xw1y7SaDpe3N5m",
+          "name": "dts-n8n"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "18owLhg94QmYCXfQ_jOlCuoPkSV4a1APprAjYJN4Wj8w",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 1998641344,
+          "mode": "list",
+          "cachedResultName": "machine_status",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/18owLhg94QmYCXfQ_jOlCuoPkSV4a1APprAjYJN4Wj8w/edit#gid=1998641344"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        496,
+        1216
+      ],
+      "id": "8dd5f49c-2a0e-4333-971e-496f3d26a262",
+      "name": "อ่านสถานะเครื่อง",
+      "executeOnce": true,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "a4Xw1y7SaDpe3N5m",
+          "name": "dts-n8n"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "const H = (function(){\n// ============================================================\n// ตัวแยกคำสั่ง LINE → แก้ข้อมูลการผลิต (เฟส เคส 1–2: เลื่อนส่ง / แก้จำนวน)\n// pure functions (unit-testable) — n8n Code node เรียกใช้ผ่าน plumbing\n// ============================================================\n\n// ---------- helpers ----------\nconst nows = s => String(s == null ? '' : s).replace(/\\s+/g, '');\nconst num  = v => Number(String(v == null ? '' : v).replace(/,/g, '')) || 0;\nconst fmt  = n => Math.round(n).toString().replace(/\\B(?=(\\d{3})+(?!\\d))/g, ',');\nconst normMachine = m => { m = String(m == null ? '' : m).trim().toUpperCase().replace(/\\s+/g, ''); return m === 'TE1' ? 'TE' : m; };\n\n// อ่านค่าจากแถวชีตแบบทนช่องว่าง/ขึ้นบรรทัดในชื่อคอลัมน์ (เช่น \"จำนวนที่ต้องผลิตเพิ่ม (ใบ)\" / \"วัน Delivery\")\nfunction pgetKey(row, target){ const t = nows(target); for (const k in row){ if (nows(k).startsWith(t)) return k; } return null; }\nfunction pget(row, target){ const k = pgetKey(row, target); return k == null ? undefined : row[k]; }\n\n// normalize วันที่ -> d/m/yyyy (รับ dd/mm/yyyy, yyyy-mm-dd, พ.ศ.)\nfunction toDMY(s){\n  const t = String(s == null ? '' : s).trim();\n  let m = t.match(/^(\\d{1,2})\\/(\\d{1,2})\\/(\\d{2,4})/); if (m){ let Y=+m[3]; if(Y>2400)Y-=543; if(Y<100)Y+=2000; return `${+m[1]}/${+m[2]}/${Y}`; }\n  m = t.match(/^(\\d{4})-(\\d{1,2})-(\\d{1,2})/); if (m){ let Y=+m[1]; if(Y>2400)Y-=543; return `${+m[3]}/${+m[2]}/${Y}`; }\n  return null;\n}\n\n// ---------- parse ----------\nconst KW = ['เลื่อนส่ง', 'แก้จำนวน', 'ปิดงาน', 'ย้ายเครื่อง', 'ย้ายงาน', 'เปิดเครื่อง', 'ปิดเครื่อง'];\nconst LABELS = { 'เครื่อง':'machine', 'สินค้า':'product', 'ส่งใหม่':'newDelivery', 'จำนวนใหม่':'newQty',\n                 'เริ่ม':'start', 'เครื่องเสีย':'brokenMachine', 'ย้ายไป':'toMachine' };\nfunction normLabel(s){ const t = String(s || '').trim(); if (t.toLowerCase() === 'delivery') return 'delivery'; return LABELS[t] || null; }\n\nfunction parseCommand(text){\n  const raw = String(text == null ? '' : text).trim();\n  if (/^ยืนยัน\\b/.test(raw) || raw === 'ยืนยัน') return { intent:'confirm' };\n  if (/^ยกเลิก\\b/.test(raw) || raw === 'ยกเลิก') return { intent:'cancel' };\n  if (/^(help|วิธีใช้|คำสั่ง|เมนู)$/i.test(raw)) return { intent:'help' };\n  const lines = raw.split(/\\r?\\n/).map(s => s.trim()).filter(Boolean);\n  let kw = '', kwval = '';\n  for (const ln of lines){\n    if (KW.includes(ln)){ kw = ln; break; }\n    const m = ln.match(/^(เลื่อนส่ง|แก้จำนวน|ปิดงาน|ปิดเครื่อง|ย้ายเครื่อง|ย้ายงาน|เปิดเครื่อง)\\s*[:：]?\\s*(.*)$/);\n    if (m){ kw = m[1]; kwval = (m[2] || '').trim(); break; }\n  }\n  if (!kw) return { intent:'chat' };\n  const fields = {};\n  for (const ln of lines){\n    if (KW.includes(ln) || ln.indexOf(kw) === 0) continue;   // ข้ามบรรทัด keyword (bare หรือ keyword: value)\n    const m = ln.match(/^([^:：]+)[:：]\\s*(.*)$/); if (!m) continue;\n    const key = normLabel(m[1]); if (key) fields[key] = m[2].trim();\n  }\n  const cmdMap = { 'เลื่อนส่ง':'delivery', 'แก้จำนวน':'qty', 'ปิดงาน':'close', 'ย้ายเครื่อง':'move', 'ย้ายงาน':'movejob', 'เปิดเครื่อง':'open', 'ปิดเครื่อง':'shut' };\n  return { intent:'cmd', cmd: cmdMap[kw] || 'move', fields, kwval };\n}\n\n// ---------- match order ใน Planning ----------\nfunction matchOrder(planningRows, fields){\n  const tMachine = normMachine(fields.machine), tProd = nows(fields.product);\n  if (!tMachine || !tProd) return { status:'badinput' };\n  let cand = (planningRows || []).filter(r => {\n    const rm = normMachine(pget(r, 'เครื่องจักร')), rp = nows(pget(r, 'ชื่อสินค้า'));\n    return rm === tMachine && rp && (rp.includes(tProd) || tProd.includes(rp));\n  });\n  // ให้ความสำคัญงานที่ยังไม่จบ (คงเหลือ > 0)\n  const active = cand.filter(r => (num(pget(r, 'จำนวนที่ต้องผลิตเพิ่ม')) - num(pget(r, 'จำนวนที่ผลิตแล้ว'))) > 0);\n  if (active.length) cand = active;\n  // แยกความกำกวมด้วย Delivery/เริ่ม\n  if (cand.length > 1 && (fields.delivery || fields.start)){\n    cand = cand.filter(r => {\n      if (fields.delivery) return nows(pget(r, 'วันDelivery')).includes(nows(fields.delivery));\n      if (fields.start)    return nows(pget(r, 'วันที่ผลิต')).includes(nows(fields.start));\n      return true;\n    });\n  }\n  if (cand.length === 0) return { status:'none' };\n  if (cand.length > 1)  return { status:'many', matches:cand };\n  return { status:'ok', row:cand[0] };\n}\n\n// ---------- build confirm (สรุปก่อนยืนยัน) ----------\nfunction buildConfirm(cmd, row, fields){\n  const machine = String(pget(row, 'เครื่องจักร') || '').trim();\n  const prod = String(pget(row, 'ชื่อสินค้า') || '').trim();\n  const rn = pget(row, 'row_number');\n  if (cmd === 'delivery'){\n    const nd = toDMY(fields.newDelivery);\n    if (!nd) return { ok:false, error:'รูปแบบวันที่ไม่ถูก ใช้ วว/ดด/ปปปป เช่น 15/07/2026' };\n    const old = String(pget(row, 'วันDelivery') || '-').trim();\n    return { ok:true, field:pgetKey(row, 'วันDelivery'), value:nd, row_number:rn,\n             summary:`เลื่อนส่ง ${prod} (${machine}) → ${nd}`,\n             reply:`ยืนยันการแก้ไข?\\n• งาน: ${prod} (${machine})\\n• เลื่อนวันส่ง: ${old} → ${nd}\\nพิมพ์ \"ยืนยัน\" ใน 5 นาที (หรือ \"ยกเลิก\")` };\n  }\n  if (cmd === 'qty'){\n    const nq = num(fields.newQty);\n    if (!nq || nq <= 0) return { ok:false, error:'จำนวนใหม่ไม่ถูกต้อง ใส่ตัวเลข > 0 (หน่วยใบ)' };\n    const oldQ = num(pget(row, 'จำนวนที่ต้องผลิตเพิ่ม'));\n    const prod0 = num(pget(row, 'จำนวนที่ผลิตแล้ว'));\n    let note = '';\n    if (prod0 > 0) note = nq <= prod0 ? `\\n• ผลิตแล้ว ${fmt(prod0)} → เกินเป้าใหม่ งานนี้จะถูกปิด (คงเหลือ 0)` : `\\n• ผลิตแล้ว ${fmt(prod0)} · คงเหลือใหม่ ${fmt(nq - prod0)}`;\n    return { ok:true, field:pgetKey(row, 'จำนวนที่ต้องผลิตเพิ่ม'), value:nq, row_number:rn,\n             summary:`แก้จำนวน ${prod} (${machine}) → ${fmt(nq)} ใบ`,\n             reply:`ยืนยันการแก้ไข?\\n• งาน: ${prod} (${machine})\\n• แก้ยอดผลิต: ${fmt(oldQ)} → ${fmt(nq)} ใบ${note}\\nพิมพ์ \"ยืนยัน\" ใน 5 นาที (หรือ \"ยกเลิก\")` };\n  }\n  if (cmd === 'close'){\n    const prod0 = num(pget(row, 'จำนวนที่ผลิตแล้ว'));\n    return { ok:true, row_number:rn, produced:prod0,\n             summary:`ปิดงาน ${prod} (${machine}) · ผลิตแล้ว ${fmt(prod0)} ใบ`,\n             reply:`ยืนยันปิดงาน?\\n• งาน: ${prod} (${machine})\\n• ปิดที่ยอดผลิตแล้ว ${fmt(prod0)} ใบ (เหลือ 0)\\n• งานถัดไปบนเครื่องนี้จะเลื่อนขึ้นมาแทน\\nพิมพ์ \"ยืนยัน\" ใน 5 นาที (หรือ \"ยกเลิก\")` };\n  }\n  return { ok:false, error:'ยังไม่รองรับคำสั่งนี้' };\n}\n\n// ---------- apply (ตอน \"ยืนยัน\") ----------\nfunction applyConfirm(pending){\n  const update = { row_number: pending.row_number };\n  update[pending.field] = pending.value;\n  return { update, reply:`อัปเดตแล้ว ✓\\n${pending.summary}\\n(จะจัดตารางใหม่ในรอบถัดไป)` };\n}\n\n\nreturn { matchOrder, buildConfirm, pget, pgetKey };\n})();\nconst A = (function(){\n// ============================================================\n// Scoped re-plan engine (แนว B) — วางแผนใหม่ \"เฉพาะเครื่องนั้น\" เหมือน re-plan\n//  • เวลา = จำนวน ÷ กำลังผลิตจริง (rate)   • แบ่งช่อง = หาร (base=floor(qty/cnt), ช่องท้าย +เศษ)  [เหมือน re-plan]\n//  • จัดคน ≤4 รวมทั้งโรงงาน โดยดู \"ภาระคน\" ของเครื่องอื่นเป็นพื้นหลัง (scheduleBinsBG)\n//  • คน/ใบ = สินค้าเดียว 1 คน, หลายสินค้า 2 คน   • เขียนเฉพาะแถวเครื่องที่แตะ (update ตาม row_number)\n// ============================================================\nconst pad=(n,w)=>String(n).padStart(w,'0');\nconst num=v=>Number(String(v==null?'':v).replace(/,/g,''))||0;\nconst core=s=>String(s==null?'':s).split('|')[0].trim();\nconst normMachine=m=>{m=String(m==null?'':m).trim().toUpperCase().replace(/\\s+/g,'');return m==='TE1'?'TE':m;};\nconst H=3600000;\nconst nows=s=>String(s==null?'':s).replace(/\\s+/g,'');\nfunction coreMatch(cores,prod){const p=nows(core(prod));if(!p)return false;return (cores||[]).some(c=>{c=nows(c);return c&&(c.includes(p)||p.includes(c));});}\nfunction toYMD(v){ if(v==null||v==='')return null; const s=String(v).trim();\n  if(/^\\d+(\\.\\d+)?$/.test(s)){const n=parseFloat(s); if(n>20000&&n<80000){const d=new Date(Date.UTC(1899,11,30)+Math.round(n)*86400000); return `${d.getUTCFullYear()}-${pad(d.getUTCMonth()+1,2)}-${pad(d.getUTCDate(),2)}`;}}\n  let m=s.match(/^(\\d{4})-(\\d{1,2})-(\\d{1,2})/); if(m){let Y=+m[1];if(Y>2400)Y-=543;return `${Y}-${pad(+m[2],2)}-${pad(+m[3],2)}`;}\n  m=s.match(/^(\\d{1,2})\\/(\\d{1,2})\\/(\\d{2,4})/); if(m){let Y=+m[3];if(Y>2400)Y-=543;if(Y<100)Y+=2000;return `${Y}-${pad(+m[2],2)}-${pad(+m[1],2)}`;}\n  const d=new Date(s); return isNaN(d)?null:`${d.getFullYear()}-${pad(d.getMonth()+1,2)}-${pad(d.getDate(),2)}`; }\nfunction mkDT(ymd,t){ let hh=8,mm=0; const m=String(t==null?'':t).match(/(\\d{1,2}):(\\d{1,2})/); if(m){hh=+m[1];mm=+m[2];} const [y,mo,d]=ymd.split('-').map(Number); return new Date(y,mo-1,d,hh,mm,0); }\nconst fmtYMD2=dt=>`${dt.getFullYear()}-${pad(dt.getMonth()+1,2)}-${pad(dt.getDate(),2)}`;\nconst fmtHM=dt=>`${pad(dt.getHours(),2)}:${pad(dt.getMinutes(),2)}`;\nconst fmtDMY=dt=>`${dt.getDate()}/${dt.getMonth()+1}/${dt.getFullYear()}`;\nconst timeCols=(s,e)=>({'วันที่เริ่มผลิตสินค้า':fmtYMD2(s),'เวลาเริ่มผลิตสินค้า':fmtHM(s),'วันที่สิ้นสุดผลิตสินค้า':fmtYMD2(e),'เวลาสิ้นสุดผลิตสินค้า':fmtHM(e)});\n\n// ---------- parse รายการ T1 -> jobs ----------\nfunction parseJobs(rows){\n  const jobs=[];\n  for(const r of (rows||[])){\n    const machine=String(r['เครื่องจักร']||'').trim(); const sdY=toYMD(r['วันที่เริ่มผลิตสินค้า']); if(!machine||!sdY)continue;\n    const edY=toYMD(r['วันที่สิ้นสุดผลิตสินค้า'])||sdY;\n    let st=mkDT(sdY,r['เวลาเริ่มผลิตสินค้า']), en=mkDT(edY,r['เวลาสิ้นสุดผลิตสินค้า']); if(en<=st)en=new Date(st.getTime()+H);\n    const items=[];\n    for(let i=1;i<=4;i++){ const nm=String(r['ชื่อสินค้า แม่พิมพ์ตัวที่ '+i]||'').trim(); if(!nm)continue; items.push({slot:i,name:nm,core:core(nm),qty:num(r['จำนวนสั่งผลิต'+i])}); }\n    const prodQty={}; for(const it of items) prodQty[it.core]=(prodQty[it.core]||0)+it.qty;   // ยอดต่อสินค้า (รวมช่อง = หารมาแล้ว)\n    const workers=Object.keys(prodQty).length<=1?1:2;\n    jobs.push({machine,mkey:normMachine(machine),ps:st,pe:en,items,cores:Object.keys(prodQty),prodQty,workers,\n               oldDurH:Math.max(0.01,(en-st)/H), rowNumber:(r['row_number']!=null?r['row_number']:null)});\n  }\n  return jobs;\n}\n// อัตราต่อสินค้า: จาก Planning (กำลังผลิตจริง) ถ้าไม่มี → อนุมานจากเวลาปัจจุบัน (qty/oldDurH)\nfunction makeRateFor(rateMap){\n  return (mkey,c,qtyOld,job)=>{ const r=num((rateMap||{})[mkey+'|'+nows(c)]); if(r>0)return r; return Math.max(1e-6,(qtyOld||1)/job.oldDurH); };\n}\n// เวลางาน (ชม) = max ต่อสินค้า ( qty ÷ rate )   (สินค้าเดินขนานในเครื่อง เวลา=ตัวที่นานสุด)\nfunction jobDurH(job,rateFor,override){\n  let d=0; for(const c in job.prodQty){ const q=(override&&override.core===c)?override.qty:job.prodQty[c]; const rate=rateFor(job.mkey,c,job.prodQty[c],job); d=Math.max(d,q/rate); } return d;\n}\n// แบ่งจำนวนลงช่องของสินค้านั้น (หาร: base=floor, ช่องท้าย +เศษ) เหมือน re-plan\nfunction divideSlots(job,coreTarget,newTotal){\n  const slots=job.items.filter(it=>coreMatch([it.core],coreTarget)); if(!slots.length)return null;\n  const cnt=slots.length, base=Math.floor(newTotal/cnt), rem=newTotal-base*cnt;\n  slots.forEach((it,i)=>{ it.qty=base+(i===cnt-1?rem:0); });\n  job.prodQty[slots[0].core]=newTotal;\n  return slots;\n}\n\n// ---------- scheduler + background worker load ----------\n// bins: {machine, planned(Date), durH, workers} → เซ็ต .start .end · background: [{start,end,workers}]\nfunction scheduleBinsBG(bins, machineFreeAt, background){\n  const MAX=4, ms=d=>d.getTime(), addH=(b,h)=>new Date(b.getTime()+h*H);\n  const bg=(background||[]).map(b=>({s:ms(b.start),e:ms(b.end),w:b.workers}));\n  const bgAt=t=>bg.reduce((a,x)=>(x.s<=t&&t<x.e)?a+x.w:a,0);\n  const running=[]; const queue=bins.slice();\n  const mfree={}; for(const k in (machineFreeAt||{})) if(machineFreeAt[k]) mfree[k]=ms(machineFreeAt[k]);\n  const machFree=m=>mfree[m]!=null?mfree[m]:-Infinity;\n  const elig=b=>Math.max(ms(b.planned),machFree(b.machine));\n  let t=queue.length?Math.min(...queue.map(b=>ms(b.planned))):0; let guard=0;\n  while((queue.length||running.length)&&guard++<1000000){\n    for(let i=running.length-1;i>=0;i--) if(running[i].end<=t) running.splice(i,1);\n    const usedRun=running.reduce((a,r)=>a+r.workers,0);\n    let free=MAX-bgAt(t)-usedRun;\n    for(let i=0;i<queue.length;i++){\n      const b=queue[i];\n      if(ms(b.planned)>t) continue;\n      if(machFree(b.machine)>t) continue;\n      if(free>=b.workers){ b.start=new Date(t); b.end=addH(b.start,b.durH); running.push({end:ms(b.end),workers:b.workers}); mfree[b.machine]=ms(b.end); free-=b.workers; queue.splice(i,1); i--; }\n      else break;\n    }\n    if(!queue.length&&!running.length) break;\n    const nextEnd=running.length?Math.min(...running.map(r=>r.end)):Infinity;\n    let nextElig=Infinity; for(const b of queue){const e=elig(b); if(e>t&&e<nextElig)nextElig=e;}\n    let nextBg=Infinity; for(const x of bg){ if(x.s>t&&x.s<nextBg)nextBg=x.s; if(x.e>t&&x.e<nextBg)nextBg=x.e; }\n    let nt=Math.min(nextEnd,nextElig,nextBg); if(!isFinite(nt)||nt<=t) nt=t+H; t=nt;\n  }\n  for(const b of bins) if(!b.start){ b.start=new Date(b.planned.getTime()); b.end=addH(b.start,b.durH); }\n  return bins;\n}\n\n// ---------- helpers: พื้นหลังคน + จัดตาราง ----------\nfunction buildBackground(jobs, replanSet, now){\n  return jobs.filter(j=>j.pe>now && !replanSet.has(j)).map(j=>({start:j.ps,end:j.pe,workers:j.workers}));\n}\nfunction schedule(replan, background, plannedFor, rateFor, machineFreeAt){\n  const bins=replan.map(j=>({job:j, machine:j.mkey, planned:plannedFor(j), durH:jobDurH(j,rateFor,null), workers:j.workers, ps:j.ps}));\n  scheduleBinsBG(bins, machineFreeAt||{}, background);   // queue = ตามลำดับที่ส่งมา (caller เรียงแล้ว)\n  return bins;\n}\n\n// ---------- แก้จำนวน: วางแผนเครื่องนั้นใหม่ตั้งแต่งานที่แก้เป็นต้นไป (rate-based + คน) ----------\nfunction applyQty(jobs, machine, coreTarget, newQty, rateFor, planRowNumber, now){\n  const mk=normMachine(machine);\n  const editJob=jobs.filter(j=>j.mkey===mk&&coreMatch(j.cores,coreTarget)&&j.pe>now).sort((a,b)=>a.ps-b.ps)[0];\n  if(!editJob) return {error:'ไม่พบงานสินค้านี้บนเครื่อง (อาจผลิตจบแล้ว)'};\n  const slots=divideSlots(editJob,coreTarget,newQty);\n  // replan = งานเครื่องนี้ตั้งแต่ใบที่แก้เป็นต้นไป (ใบก่อนหน้าคงเดิม=พื้นหลัง) · แพ็คจากเวลาเริ่มของใบที่แก้\n  const replan=jobs.filter(j=>j.mkey===mk&&j.pe>now&&j.ps>=editJob.ps).sort((a,b)=>a.ps-b.ps);\n  const rset=new Set(replan);\n  const bins=schedule(replan, buildBackground(jobs,rset,now), ()=>new Date(editJob.ps), rateFor);\n  const raykRows=bins.map(b=>{ const r=Object.assign({row_number:b.job.rowNumber},timeCols(b.start,b.end));\n    if(b.job===editJob) for(const it of slots) r['จำนวนสั่งผลิต'+it.slot]=it.qty; return r; });\n  const planRows=planRowNumber!=null?[{row_number:planRowNumber,'จำนวนที่ต้องผลิตเพิ่ม (ใบ)':newQty}]:[];\n  return {raykRows,planRows,machine:mk,jobs:bins.length};\n}\n\n// ---------- ย้าย/เครื่องเสีย ----------\nconst family=m=>/^PF8/.test(m)?'PF8':m;   // ตระกูล PF8 ใช้แทนกันได้ · TE/ASB/KM แยก\n// เครื่อง \"ว่าง ณ ตอนนี้\" = ปลายของงานที่ \"กำลังเดิน\" (ps≤now<pe) เท่านั้น · งานอนาคตไม่ทำให้เครื่องยุ่งตอนนี้ (ถูกดันออกได้)\nfunction machineFreeNow(jobs, mk, now){ let a=now.getTime(); for(const j of jobs){ if(j.mkey===mk && j.ps<=now && j.pe>now && j.pe.getTime()>a) a=j.pe.getTime(); } return a; }\n// รายชื่อเครื่องที่เลือกได้ · usable = เครื่อง \"ใช้งานได้\" จากชีตสถานะ · ไม่มี → fallback MASTER + ที่เห็นในตาราง\nfunction usablePool(jobs, bk, usable){\n  const MASTER=['PF8/3','PF8/5','PF8/6','PF8/7','PF8/8','TE','ASB250/3'];   // ← fallback ถ้ายังไม่มีชีตสถานะ\n  const pool = (usable && usable.length) ? usable.map(normMachine) : [...MASTER.map(normMachine), ...jobs.map(j=>j.mkey)];\n  return [...new Set(pool)].filter(m=>m!==bk);\n}\n// จัดตารางหลังย้าย (ใช้ร่วม breakdown/ย้ายเฉพาะใบ) · movedStartNow=true → งานที่ย้ายเริ่มทันที (ดันงานอนาคตออก)\nfunction doReschedule(jobs, moving, movedSet, targets, rateFor, now, planRowOf, srcMk, movedStartNow){\n  const replan=jobs.filter(j=> movedSet.has(j) || (targets.has(j.mkey) && j.ps>now && j.pe>now));\n  replan.sort((a,b)=>{ const am=movedSet.has(a)?0:1, bm=movedSet.has(b)?0:1; return am!==bm?am-bm:a.ps-b.ps; });  // งานที่ย้ายก่อน\n  const rset=new Set(replan);\n  const machineFreeAt={};   // เครื่องปลายทางว่างเมื่อไร (เฉพาะงานเดิมที่กำลังเดิน ไม่นับงานที่ย้ายมา)\n  for(const tg of targets){ let f=now.getTime();\n    for(const j of jobs) if(!movedSet.has(j) && j.mkey===tg && j.ps<=now && j.pe>now && j.pe.getTime()>f) f=j.pe.getTime();\n    if(f>now.getTime()) machineFreeAt[tg]=new Date(f); }\n  const plannedFor=j=> movedSet.has(j)\n    ? (movedStartNow ? new Date(now) : new Date(Math.max(now.getTime(), j.ps.getTime())))\n    : new Date(Math.max(now.getTime(), j.ps.getTime()));\n  const bins=schedule(replan, buildBackground(jobs,rset,now), plannedFor, rateFor, machineFreeAt);\n  const raykRows=bins.map(b=>{ const r=Object.assign({row_number:b.job.rowNumber},timeCols(b.start,b.end));\n    if(movedSet.has(b.job)) r['เครื่องจักร']=b.job.machine; return r; });\n  const planRows=[]; const seen={};\n  for(const j of moving){ const c=nows(j.cores[0]); const prn=(planRowOf||{})[srcMk+'|'+c]; if(prn!=null&&!seen[prn]){seen[prn]=1; planRows.push({row_number:prn,'เครื่องจักร':j.machine});} }\n  return {raykRows,planRows};\n}\n// เลือกเครื่องปลายทาง (auto = ว่าง ณ ตอนนี้ ตระกูลเดียวกัน จากเครื่องที่ใช้งานได้) · กระจายหลายงาน\nfunction planMoveTargets(jobs, brokenMachine, targetMachine, rateFor, now, usable){\n  const bk=normMachine(brokenMachine);\n  const moving=jobs.filter(j=>j.mkey===bk&&j.pe>now);\n  if(!moving.length) return {error:`ไม่มีงานค้างบนเครื่อง ${brokenMachine}`};\n  const movedSet=new Set(moving);\n  if(targetMachine){ const tg=normMachine(targetMachine); for(const j of moving){j.machine=targetMachine.trim();j.mkey=tg;} return {moving,movedSet,targets:new Set([tg])}; }\n  let cands=usablePool(jobs,bk,usable);\n  const same=cands.filter(m=>family(m)===family(bk)); if(same.length) cands=same;   // TE เสีย=ไม่มีตระกูลเดียวกัน → เครื่องอื่น\n  if(!cands.length) return {error:'ไม่พบเครื่องปลายทางที่ใช้งานได้ · ระบุ ย้ายไป: <เครื่อง>'};\n  const inSched=new Set(jobs.map(j=>j.mkey));\n  const nameOf={}; for(const m of cands) nameOf[m]=m; for(const j of jobs) nameOf[j.mkey]=j.machine;   // ชื่อจริง\n  const avail={}; for(const m of cands) avail[m]=machineFreeNow(jobs,m,now);   // ว่าง ณ ตอนนี้\n  for(const j of moving.slice().sort((a,b)=>a.ps-b.ps)){\n    let best=cands[0];\n    for(const m of cands) if(avail[m]<avail[best] || (avail[m]===avail[best] && inSched.has(m) && !inSched.has(best))) best=m;\n    j.machine=nameOf[best]||best; j.mkey=best; avail[best]+=jobDurH(j,rateFor,null)*H;   // ว่างเร็วสุด · กระจายต่องาน\n  }\n  return {moving,movedSet,targets:new Set(moving.map(j=>j.mkey))};\n}\n// เครื่องเสีย: ย้ายงานทั้งหมด (auto/ระบุ) · เริ่มทันที\nfunction applyMove(jobs, brokenMachine, targetMachine, rateFor, now, planRowOf, usable){\n  const pm=planMoveTargets(jobs,brokenMachine,targetMachine,rateFor,now,usable);\n  if(pm.error) return {error:pm.error};\n  const r=doReschedule(jobs, pm.moving, pm.movedSet, pm.targets, rateFor, now, planRowOf, normMachine(brokenMachine), true);\n  return Object.assign(r, {targets:[...pm.targets], moved:pm.moving.length});\n}\n// ย้ายเฉพาะใบ (ชี้ด้วยเครื่อง+วันเริ่มผลิต) ไปเครื่องที่ระบุ · คงจังหวะเวลาเดิม (ไม่ดึงมา now)\nfunction applyMoveJob(jobs, machine, startYMD, targetMachine, rateFor, now, planRowOf){\n  if(!targetMachine) return {error:'ระบุ ย้ายไป: <เครื่อง>'};\n  const mk=normMachine(machine), tg=normMachine(targetMachine), sY=toYMD(startYMD);\n  if(!sY) return {error:'ระบุ เริ่ม: วว/ดด/ปปปป (วันเริ่มผลิตของใบที่จะย้าย)'};\n  const job=jobs.filter(j=>j.mkey===mk && fmtYMD2(j.ps)===sY && j.pe>now).sort((a,b)=>a.ps-b.ps)[0];\n  if(!job) return {error:`ไม่พบงานบนเครื่อง ${machine} ที่เริ่มวันที่ ${startYMD}`};\n  job.machine=targetMachine.trim(); job.mkey=tg;\n  const r=doReschedule(jobs,[job],new Set([job]),new Set([tg]),rateFor,now,planRowOf,mk,false);\n  return Object.assign(r, {targets:[tg], moved:1});\n}\n\n// ---------- ปิดงาน: ปิดใบที่ผลิตแล้ว (จบ=now) แล้ว replan งานหลังใบนั้นบนเครื่องเดิม ----------\nfunction applyClose(jobs, machine, coreTarget, produced, rateFor, planRowNumber, now){\n  const mk=normMachine(machine);\n  const closeJob=jobs.filter(j=>j.mkey===mk&&coreMatch(j.cores,coreTarget)&&j.pe>now).sort((a,b)=>a.ps-b.ps)[0];\n  if(!closeJob) return {error:'ไม่พบงานสินค้านี้บนเครื่อง'};\n  const P=Math.max(0,produced);\n  const slots=divideSlots(closeJob,coreTarget,P);\n  const closeEnd = now>closeJob.ps ? new Date(now) : new Date(closeJob.ps);\n  closeJob.pe=closeEnd;   // ให้พื้นหลังคนสะท้อนว่าใบนี้จบเร็วขึ้น\n  const after=jobs.filter(j=>j.mkey===mk&&j.pe>now&&j.ps>closeJob.ps).sort((a,b)=>a.ps-b.ps);\n  const rset=new Set(after);\n  const bins=schedule(after, buildBackground(jobs,rset,now), ()=>new Date(closeEnd), rateFor);\n  const closeSlotCols={}; for(const it of slots) closeSlotCols['จำนวนสั่งผลิต'+it.slot]=it.qty;\n  const raykRows=[Object.assign({row_number:closeJob.rowNumber}, timeCols(closeJob.ps, closeEnd), closeSlotCols)];\n  for(const b of bins) raykRows.push(Object.assign({row_number:b.job.rowNumber},timeCols(b.start,b.end)));\n  const planRows=planRowNumber!=null?[{row_number:planRowNumber,'จำนวนที่ต้องผลิตเพิ่ม (ใบ)':P}]:[];\n  return {raykRows,planRows};\n}\n\n\n\nreturn { parseJobs, makeRateFor, applyQty, applyClose, applyMove, applyMoveJob, planMoveTargets, core, normMachine, num, nows, toYMD, fmtYMD2 };\n})();\nconst { matchOrder, buildConfirm, pget } = H;\nconst { parseJobs, makeRateFor, applyQty, applyClose, applyMove, applyMoveJob, planMoveTargets, core, normMachine, num, nows, toYMD, fmtYMD2 } = A;\n\n// ===== plumbing ประมวลผล (scoped re-plan + machine status) =====\nconst cmd = $('แยกคำสั่ง').first().json;\nlet planning = []; try { planning = $('อ่าน Planning').all().map(i => i.json); } catch (e) {}\nlet raykar  = []; try { raykar  = $('อ่าน รายการ T1').all().map(i => i.json); } catch (e) {}\nlet statRows = []; try { statRows = $('อ่านสถานะเครื่อง').all().map(i => i.json); } catch (e) {}\nconst sd = $getWorkflowStaticData('global'); sd.pending = sd.pending || {};\nconst key = cmd.srcKey, to = cmd.to, TTL = 5 * 60 * 1000;\nconst now = (typeof $now !== 'undefined' && $now.toJSDate) ? $now.toJSDate() : new Date();\nconst todayStr = now.getDate() + '/' + (now.getMonth()+1) + '/' + now.getFullYear();\nlet reply = '', doWrite = false, raykRows = [], planRows = [], statusRows = [];\n\n// อัตรา/ผลิตแล้ว/planning row จาก Planning\nconst rateMap = {}, producedMap = {}, planRowOf = {};\nfor (const r of planning) {\n  const mk = normMachine(pget(r, 'เครื่องจักร')); const c = nows(core(pget(r, 'ชื่อสินค้า')));\n  if (!mk || !c) continue; const k = mk + '|' + c;\n  const rate = num(pget(r, 'กำลังผลิตจริง')); if (rate > 0) rateMap[k] = rate;\n  producedMap[k] = num(pget(r, 'จำนวนที่ผลิตแล้ว'));\n  if (planRowOf[k] == null) planRowOf[k] = r['row_number'];\n}\nconst rateFor = makeRateFor(rateMap);\n\n// เครื่องที่ \"ใช้งานได้\" + row ของแต่ละเครื่อง จากชีตสถานะ (แถวต้องมีคอลัมน์ 'สถานะ' เท่านั้น กัน passthrough)\nconst usable = [], statusRowOf = {};\nfor (const r of statRows) {\n  const s = pget(r, 'สถานะ'); if (s === undefined || s === null) continue;\n  const m = normMachine(pget(r, 'เครื่องจักร')); if (!m) continue;\n  statusRowOf[m] = r['row_number'];\n  if (!/เสีย|พัง|ปิด|หยุด|ซ่อม/.test(String(s))) usable.push(m);\n}\n\nif (cmd.intent === 'help') {\n  reply = 'คำสั่ง (พิมพ์ทีละบรรทัด):\\n① เลื่อนส่ง / เครื่อง / สินค้า / ส่งใหม่\\n② แก้จำนวน / เครื่อง / สินค้า / จำนวนใหม่\\n③ ปิดงาน / เครื่อง / สินค้า\\n④ ย้ายเครื่อง / เครื่องเสีย / (ย้ายไป)\\n⑤ ย้ายงาน / เครื่อง / เริ่ม / ย้ายไป\\n⑥ เปิดเครื่อง: <เครื่อง>  ·  ปิดเครื่อง: <เครื่อง>\\nยืนยัน=ยืนยัน · ยกเลิก=ยกเลิก';\n} else if (cmd.intent === 'cancel') {\n  if (sd.pending[key]) { delete sd.pending[key]; reply = 'ยกเลิกแล้ว'; } else reply = 'ไม่มีรายการรอยืนยัน';\n} else if (cmd.intent === 'confirm') {\n  const pend = sd.pending[key];\n  if (!pend) reply = 'ไม่มีรายการรอยืนยัน · ส่งคำสั่งก่อน';\n  else if (Date.now() - pend.ts > TTL) { delete sd.pending[key]; reply = 'รายการหมดอายุ (เกิน 5 นาที) · ส่งคำสั่งใหม่'; }\n  else {\n    let res = { raykRows: [], planRows: [] };\n    if (pend.type === 'delivery') res = { raykRows: [], planRows: [{ row_number: pend.planRowNumber, 'วัน Delivery': pend.value }] };\n    else if (pend.type === 'qty')     res = applyQty(parseJobs(raykar), pend.machine, pend.prod, pend.newQty, rateFor, pend.planRowNumber, now);\n    else if (pend.type === 'close')   res = applyClose(parseJobs(raykar), pend.machine, pend.prod, pend.produced, rateFor, pend.planRowNumber, now);\n    else if (pend.type === 'movejob') res = applyMoveJob(parseJobs(raykar), pend.machine, pend.start, pend.toMachine, rateFor, now, planRowOf);\n    else if (pend.type === 'move') {\n      res = applyMove(parseJobs(raykar), pend.brokenM, pend.targetM, rateFor, now, planRowOf, usable);\n      if (!res.error) { const brk = normMachine(pend.brokenM); if (statusRowOf[brk] != null) statusRows = [{ row_number: statusRowOf[brk], 'สถานะ': 'เสีย', 'อัปเดตเมื่อ': todayStr }]; }\n    }\n    if (res.error) reply = res.error;\n    else { raykRows = res.raykRows || []; planRows = res.planRows || []; doWrite = (raykRows.length + planRows.length + statusRows.length) > 0;\n           reply = 'อัปเดตแล้ว ✓\\n' + pend.summary + '\\nวางแผนใหม่ (เวลา/คน) + เขียนกลับแล้ว'; }\n    delete sd.pending[key];\n  }\n} else if (cmd.intent === 'cmd') {\n  if (cmd.cmd === 'open' || cmd.cmd === 'shut') {\n    const mm = normMachine(cmd.fields.machine || cmd.kwval || cmd.fields.brokenMachine || '');\n    if (!mm) reply = 'ระบุเครื่อง เช่น \"เปิดเครื่อง: PF8/5\"';\n    else if (statusRowOf[mm] == null) reply = 'ไม่พบ ' + (cmd.fields.machine || cmd.kwval) + ' ในชีต machine_status (ยังไม่ได้สร้าง/เพิ่มแถว หรือยังไม่เลือกแท็บในโหนด)';\n    else { statusRows = [{ row_number: statusRowOf[mm], 'สถานะ': (cmd.cmd === 'open' ? 'ใช้งานได้' : 'เสีย'), 'อัปเดตเมื่อ': todayStr }];\n           doWrite = true; reply = (cmd.cmd === 'open' ? '✅ เปิดเครื่อง ' : '⛔ ปิดเครื่อง ') + mm + ' → ' + (cmd.cmd === 'open' ? 'ใช้งานได้' : 'เสีย'); }\n  } else if (cmd.cmd === 'move') {\n    const bm = cmd.fields.brokenMachine || cmd.kwval, tm = cmd.fields.toMachine || '';\n    if (!bm) reply = 'ระบุ เครื่องเสีย: <เครื่อง>';\n    else {\n      const pm = planMoveTargets(parseJobs(raykar), bm, tm, rateFor, now, usable);\n      if (pm.error) reply = pm.error;\n      else { const tgs = [...pm.targets].join(', ');\n        sd.pending[key] = { type: 'move', brokenM: bm, targetM: tm, summary: 'ย้ายงาน ' + bm + ' → ' + tgs + ' (' + pm.moving.length + ' งาน)', ts: Date.now() };\n        reply = 'ยืนยันย้ายเครื่อง (เครื่องเสีย)?\\n• ' + bm + ' → ' + tgs + (tm ? '' : ' (auto: เครื่องว่าง+ใช้งานได้)') + '\\n• พัก ' + bm + ' (มาร์คเสียในชีต) · ย้าย ' + pm.moving.length + ' งาน · เริ่มทันทีถ้าเครื่องว่าง\\nพิมพ์ \"ยืนยัน\" ใน 5 นาที'; }\n    }\n  } else if (cmd.cmd === 'movejob') {\n    const m = cmd.fields.machine, st = cmd.fields.start, tg = cmd.fields.toMachine;\n    if (!m || !st || !tg) reply = 'ใส่ให้ครบ:\\nย้ายงาน\\nเครื่อง: <เครื่อง>\\nเริ่ม: วว/ดด/ปปปป\\nย้ายไป: <เครื่อง>';\n    else {\n      const sY = toYMD(st);\n      const job = sY ? parseJobs(raykar).filter(j => j.mkey === normMachine(m) && fmtYMD2(j.ps) === sY && j.pe > now).sort((a,b)=>a.ps-b.ps)[0] : null;\n      if (!sY) reply = 'รูปแบบวันเริ่มไม่ถูก ใช้ วว/ดด/ปปปป';\n      else if (!job) reply = 'ไม่พบงานบน ' + m + ' ที่เริ่มวันที่ ' + st;\n      else { const pn = job.items[0] ? String(job.items[0].name).split('|')[0].trim() : '';\n        sd.pending[key] = { type: 'movejob', machine: m, start: st, toMachine: tg, summary: 'ย้ายงาน ' + pn + ' (' + m + ' เริ่ม ' + st + ') → ' + tg, ts: Date.now() };\n        reply = 'ยืนยันย้ายงาน?\\n• ' + pn + ' บน ' + m + ' (เริ่ม ' + st + ')\\n• → ' + tg + '\\nพิมพ์ \"ยืนยัน\" ใน 5 นาที'; }\n    }\n  } else {\n    const mo = matchOrder(planning, cmd.fields);\n    if (mo.status === 'badinput') reply = 'ใส่ข้อมูลไม่ครบ ต้องมี เครื่อง: และ สินค้า:';\n    else if (mo.status === 'none') reply = 'ไม่พบออเดอร์ ' + (cmd.fields.machine || '') + ' + ' + (cmd.fields.product || '') + ' ในแผน · เช็กชื่อ/เครื่องอีกที';\n    else if (mo.status === 'many') {\n      const lst = mo.matches.slice(0, 5).map(r => '- ' + String(pget(r, 'ชื่อสินค้า') || '').trim() + ' · ส่ง ' + String(pget(r, 'วันDelivery') || '-').trim()).join('\\n');\n      reply = 'เจอหลายรายการ ระบุให้ชัดโดยเติม Delivery: หรือ เริ่ม:\\n' + lst;\n    } else {\n      const c = buildConfirm(cmd.cmd, mo.row, cmd.fields);\n      if (!c.ok) reply = c.error;\n      else {\n        const pend = { type: cmd.cmd, ts: Date.now(), summary: c.summary, planRowNumber: c.row_number };\n        const mach = String(pget(mo.row, 'เครื่องจักร') || '').trim(), pcore = core(pget(mo.row, 'ชื่อสินค้า'));\n        if (cmd.cmd === 'delivery') pend.value = c.value;\n        else if (cmd.cmd === 'qty')   { pend.machine = mach; pend.prod = pcore; pend.newQty = c.value; }\n        else if (cmd.cmd === 'close') { pend.machine = mach; pend.prod = pcore; pend.produced = c.produced; }\n        sd.pending[key] = pend; reply = c.reply;\n      }\n    }\n  }\n} else reply = '';\n\nif (!reply) return [];\nreturn [{ json: { to, replyText: reply, doWrite, raykRows, planRows, statusRows } }];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        704,
+        1216
+      ],
+      "id": "e3e318b3-5b1f-4357-83dc-61846ddf8d7a",
+      "name": "ประมวลผล",
+      "executeOnce": true
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "64cd1411-857a-496d-9935-25f484e94807",
+              "leftValue": "={{ $json.doWrite }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        928,
+        1216
+      ],
+      "id": "3b71ad5f-aaf0-4813-b2f6-39d8f16f10e5",
+      "name": "ต้องเขียน?"
+    },
+    {
+      "parameters": {
+        "jsCode": "return ($('ประมวลผล').first().json.raykRows || []).map(r => ({ json: r }));"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1136,
+        1056
+      ],
+      "id": "474729bc-88d1-4abb-b7b0-507f96695118",
+      "name": "เตรียมเขียน รายการ"
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentId": {
+          "__rl": true,
+          "value": "18owLhg94QmYCXfQ_jOlCuoPkSV4a1APprAjYJN4Wj8w",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 1421446568,
+          "mode": "list",
+          "cachedResultName": "รายการสั่งผลิตสินค้า T1"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "matchingColumns": [
+            "row_number"
+          ],
+          "schema": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        1360,
+        1056
+      ],
+      "id": "2ee934b3-ad14-44f0-bf1e-5b95eadd6a83",
+      "name": "อัปเดต รายการ T1",
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "a4Xw1y7SaDpe3N5m",
+          "name": "dts-n8n"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "return ($('ประมวลผล').first().json.planRows || []).map(r => ({ json: r }));"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1136,
+        896
+      ],
+      "id": "9c082475-e5e1-4642-a66d-82b535d24b1e",
+      "name": "เตรียมเขียน Planning"
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentId": {
+          "__rl": true,
+          "value": "18owLhg94QmYCXfQ_jOlCuoPkSV4a1APprAjYJN4Wj8w",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 1559920379,
+          "mode": "list",
+          "cachedResultName": "TPI | Production Planning| 2026"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "matchingColumns": [
+            "row_number"
+          ],
+          "schema": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        1360,
+        896
+      ],
+      "id": "c5b6cb25-05ae-4eef-ac91-1059a094a75b",
+      "name": "อัปเดต Planning",
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "a4Xw1y7SaDpe3N5m",
+          "name": "dts-n8n"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "return ($('ประมวลผล').first().json.statusRows || []).map(r => ({ json: r }));"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1136,
+        736
+      ],
+      "id": "8e13dff1-d69d-4883-a75e-3a908d6f2ada",
+      "name": "เตรียมเขียน สถานะ"
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentId": {
+          "__rl": true,
+          "value": "18owLhg94QmYCXfQ_jOlCuoPkSV4a1APprAjYJN4Wj8w",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 1998641344,
+          "mode": "list",
+          "cachedResultName": "machine_status",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/18owLhg94QmYCXfQ_jOlCuoPkSV4a1APprAjYJN4Wj8w/edit#gid=1998641344"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {},
+          "matchingColumns": [
+            "row_number"
+          ],
+          "schema": [
+            {
+              "id": "เครื่องจักร",
+              "displayName": "เครื่องจักร",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "สถานะ",
+              "displayName": "สถานะ",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "อัปเดตเมื่อ",
+              "displayName": "อัปเดตเมื่อ",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "หมายเหตุ",
+              "displayName": "หมายเหตุ",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "row_number",
+              "displayName": "row_number",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "readOnly": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        1360,
+        736
+      ],
+      "id": "39cff999-e665-40e3-8444-8c58a6d6cd44",
+      "name": "อัปเดตสถานะเครื่อง",
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "a4Xw1y7SaDpe3N5m",
+          "name": "dts-n8n"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.errorTrigger",
+      "typeVersion": 1,
+      "position": [
+        -576,
+        704
+      ],
+      "id": "dd9bc626-7232-4488-86ae-5eb2d6ce1d5e",
+      "name": "Error Trigger"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://ntfy.sh/tpi-err-n8n-5697b86b-c202-46c6-aba0-132a5d5f1641",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Title",
+              "value": "n8n Workflow Error"
+            },
+            {
+              "name": "Priority",
+              "value": "high"
+            },
+            {
+              "name": "Tags",
+              "value": "warning"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "text/plain",
+        "body": "={{ \"❌ n8n Workflow Error\\n\\nWorkflow: \" + ($json.workflow?.name ?? \"FM-DQM-002\") + \"\\nNode: \" + ($json.execution?.lastNodeExecuted ?? \"Unknown\") + \"\\nError: \" + ($json.execution?.error?.message ?? $json.error?.message ?? \"Unknown error\") + \"\\nExecution ID: \" + ($json.execution?.id ?? \"-\") + \"\\nเวลา: \" + $now.toFormat('dd/MM/yyyy HH:mm:ss') }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        -304,
+        544
+      ],
+      "id": "8f5b2e81-a657-48a4-a9ec-7f0662bf8615",
+      "name": "err-ntfy",
+      "retryOnFail": true,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.line.me/v2/bot/message/push",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer oi8iWesT6LfWpBeUiiGcl2MDqRoui2c1oWpH9NnOOcDvjqdeYV2hsvyLHOHmUQyFYDr35gOI93l7QKa6UMoKLbstEyfJHHoRJyi0LN71gl5bkM+I1R06GWOKbpjbYhflH6VZImk/9yh/S7Zl8wvG1wdB04t89/1O/w1cDnyilFU="
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { \"to\": \"C306ebbefc8c3bcc6fc91816da248a3e9\", \"messages\": [ { \"type\": \"text\", \"text\": \"❌ n8n Workflow Error\\n\\nWorkflow: \" + ($json.workflow?.name ?? \"FM-DQM-002\") + \"\\nNode: \" + ($json.execution?.lastNodeExecuted ?? \"Unknown\") + \"\\nError: \" + ($json.execution?.error?.message ?? $json.error?.message ?? \"Unknown error\") + \"\\nExecution ID: \" + ($json.execution?.id ?? \"-\") + \"\\nเวลา: \" + $now.toFormat('dd/MM/yyyy HH:mm:ss') } ] } }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        -304,
+        704
+      ],
+      "id": "bdf45c29-3a86-4fdb-97c1-793968400a9d",
+      "name": "err-line",
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000,
+      "onError": "continueRegularOutput"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "อ่าน event + ลายเซ็น",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "อ่าน event + ลายเซ็น": {
+      "main": [
+        [
+          {
+            "node": "แยกคำสั่ง",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "แยกคำสั่ง": {
+      "main": [
+        [
+          {
+            "node": "อ่าน Planning",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "อ่าน Planning": {
+      "main": [
+        [
+          {
+            "node": "อ่าน รายการ T1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "อ่าน รายการ T1": {
+      "main": [
+        [
+          {
+            "node": "อ่านสถานะเครื่อง",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "อ่านสถานะเครื่อง": {
+      "main": [
+        [
+          {
+            "node": "ประมวลผล",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "ประมวลผล": {
+      "main": [
+        [
+          {
+            "node": "ต้องเขียน?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "ต้องเขียน?": {
+      "main": [
+        [
+          {
+            "node": "เตรียมเขียน รายการ",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "เตรียมเขียน Planning",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "เตรียมเขียน สถานะ",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "ตอบกลับ (push)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "ตอบกลับ (push)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "เตรียมเขียน รายการ": {
+      "main": [
+        [
+          {
+            "node": "อัปเดต รายการ T1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "เตรียมเขียน Planning": {
+      "main": [
+        [
+          {
+            "node": "อัปเดต Planning",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "เตรียมเขียน สถานะ": {
+      "main": [
+        [
+          {
+            "node": "อัปเดตสถานะเครื่อง",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Error Trigger": {
+      "main": [
+        [
+          {
+            "node": "err-line",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "err-ntfy",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": true,
+    "timeSavedMode": "fixed",
+    "callerPolicy": "workflowsFromSameOwner"
+  },
+  "versionId": "d3b453cd-3c4f-41e6-b1dc-40e2e97ece36",
+  "meta": {
+    "instanceId": "8b89bacf03b33df343a7dd9f17cf1721598896265238cfb8ad22fd7cae20c33a"
+  },
+  "id": "ZXud0yCTLReACo93",
+  "tags": []
+}
