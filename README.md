@@ -11,8 +11,6 @@ An event-driven, closed-loop **Manufacturing Execution System (MES)** and dynami
 
 ## 📌 Architectural Overview
 
-![System Architecture](docs/architecture.png)
-
 The system operates across 4 synchronized pipelines forming a real-time autonomous feedback loop:
 
 ```mermaid
