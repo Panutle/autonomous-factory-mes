@@ -1,11 +1,10 @@
-# Autonomous Production Scheduling & Closed-Loop Line Orchestration Engine
+# Production Scheduling & Factory Line Orchestration
 
 [![n8n](https://img.shields.io/badge/Orchestrator-n8n-EA4B71?style=flat-square&logo=n8n)](https://n8n.io/)
 [![JavaScript](https://img.shields.io/badge/Core-JavaScript%20ES6+-F7DF1E?style=flat-square&logo=javascript)](https://developer.mozilla.org/)
 [![LINE Messaging API](https://img.shields.io/badge/ChatOps-LINE%20Bot%20API-00C300?style=flat-square&logo=line)](https://developers.line.biz/)
-[![Status](https://img.shields.io/badge/Status-Production%20Active-success?style=flat-square)]()
 
-An event-driven, closed-loop **Manufacturing Execution System (MES)** and dynamic scheduling engine. The system automates end-to-end factory floor operations: from multi-source data ingestion, 3-dimensional multi-criteria machine selection, resource-constrained queue planning (≤4 workers), shopfloor ChatOps via LINE Webhook, to automated visual telemetry reporting.
+Four n8n workflows connect production orders, machine scoring, labor-constrained scheduling, LINE shopfloor commands, and shift reporting.
 
 ---
 
@@ -35,7 +34,7 @@ flowchart TD
     end
 
     subgraph ShopfloorChatOps["4. Interactive Shopfloor ChatOps (shopfloor-chatops)"]
-        K1[LINE Webhook: HMAC-SHA256 Validated] --> L1[Command Parser & Finite State TTL Guard]
+        K1[LINE Webhook: Signature Metadata] --> L1[Command Parser & Finite State TTL Guard]
         L1 -->|Move / Delay / Adjust / Shut| M1[Scoped Machine Reschedule]
         M1 --> N1[Update Master DB & Notify Shopfloor]
     end
@@ -64,8 +63,8 @@ $$\text{Composite Score} = 0.40 \cdot S_{\text{Defect}} + 0.40 \cdot S_{\text{Re
 
 ---
 
-### 3. State-Machine ChatOps with HMAC-SHA256 Verification
-* **Cryptographic Security:** Every webhook request is verified using HMAC-SHA256 against `X-Line-Signature`.
+### 3. State-Machine ChatOps and Signature Inspection
+* **Signature inspection:** The parser computes an HMAC-SHA256 comparison when a channel secret and raw body are available, then attaches `sigValid` to the event. The exported flow does not reject commands based on this flag; enforce signature validation before exposing the webhook for operational use.
 * **State TTL Protection:** State changes (delay delivery, quantity adjustments, job transfers, machine emergency shutdown) utilize a memory-backed pending state with a **5-minute expiration timer (TTL)** requiring explicit user confirmation.
 * **Dynamic Scoped Re-plan:** In the event of machine failure (`ย้ายเครื่อง / เครื่องเสีย`), the engine recalculates only the affected machine's downstream jobs, automatically redirecting them to available machines while keeping unaffected lines running undisturbed.
 
@@ -84,7 +83,7 @@ $$\text{Composite Score} = 0.40 \cdot S_{\text{Defect}} + 0.40 \cdot S_{\text{Re
 | :--- | :--- | :--- | :--- |
 | `production-scheduler-main.json` | Master Scheduler | Midnight Schedule / Monthly Cron / Manual | Multi-criteria machine selection, labor-constrained scheduling, and initial work order dispatch. |
 | `dynamic-replan-engine.json` | Closed-Loop Dynamic Re-plan | Daily 06:00 Schedule / Manual | Nightly backlog audit against actual output, dynamic remaining-quantity replanning, and split-fill optimization. |
-| `shopfloor-chatops.json` | Real-time Shopfloor ChatOps | LINE Webhook (POST) | HMAC-SHA256 verification, 5-min TTL state machine, and scoped machine failover/rescheduling. |
+| `shopfloor-chatops.json` | Real-time Shopfloor ChatOps | LINE Webhook (POST) | Signature inspection, 5-min TTL state machine, and scoped machine failover/rescheduling. |
 | `shift-telemetry-reporter.json` | Telemetry & Visual Shift Reports | Daily 16:00 Schedule / Manual | Headless HTML-to-image Gantt rendering, cloud artifact storage, and shift briefings pushed via LINE. |
 
 ---
@@ -92,15 +91,31 @@ $$\text{Composite Score} = 0.40 \cdot S_{\text{Defect}} + 0.40 \cdot S_{\text{Re
 ## 🚀 Setup & Deployment
 
 ### Prerequisites
-1. **n8n Instance** (Self-hosted or Cloud v1.0+)
+1. **n8n Instance** (with node versions compatible with the exported workflows)
 2. **Google Workspace Service Account / OAuth2** (Drive & Sheets scope)
 3. **LINE Messaging API Developer Channel**
 
 ### Import Workflows
 1. Clone this repository:
    ```bash
-   git clone [https://github.com/](https://github.com/)Panutle/autonomous-factory-mes.git
+   git clone https://github.com/Panutle/autonomous-factory-mes.git
+   cd autonomous-factory-mes
    ```
 2. In your n8n interface, select **Workflows** > **Import from File**.
 3. Import the 4 JSON files from the `workflows/` directory.
-4. Link your Google Sheets and LINE API credentials within each respective node.#
+4. Link your Google Sheets and LINE API credentials within each respective node.
+
+
+## Reproduction notes
+
+This repository contains workflow exports. The source spreadsheets, operational datasets, credentials, and connected services must be supplied separately.
+
+1. Import the JSON files with the workflows inactive and resolve any unavailable node types.
+2. Rebind credential references to accounts in your own n8n instance.
+3. Replace document IDs, sheet names, folder IDs, webhook endpoints, LINE recipient IDs, and embedded configuration in both Code and HTTP Request nodes. Credential binding alone is not enough.
+4. Match sheet headers and data types to the field names read by the workflow; there is no automatic source-schema provisioning.
+5. Run a representative input against test destinations and inspect the extracted records or generated plan. Verify the workflow timezone and alert recipients before enabling schedules.
+
+The shift reporter also needs Dropbox credentials and the external HTML-to-image rendering service referenced by its HTTP Request nodes. That service is not included here.
+
+The exports demonstrate implementation choices; this repository does not include a reproducible benchmark for accuracy, time savings, or production availability.
